@@ -2,6 +2,8 @@ import sys
 import numpy as np
 import math
 import pickle
+
+from argon2._utils import NoneType
 from astropy import constants as ct
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf as fpdf
@@ -11,6 +13,9 @@ from sklearn.linear_model import LinearRegression
 import seaborn as sns
 import os
 
+import warnings
+warnings. filterwarnings("ignore")
+
 np.set_printoptions(threshold=sys.maxsize)
 sns.set(style="white", color_codes=False)
 # ===================================================================================
@@ -19,19 +24,29 @@ from typing import List
 
 
 
-def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *args, **kwargs):
+def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, show, save, threshold_perc,  *args, **kwargs):
 
     new_muse2 = kwargs.get('new_muse2', None)
     overlap_matching2 = kwargs.get('overlap_matching2', None)
     outliers2 = kwargs.get('outliers2', None)
+    threshold_perc2 = kwargs.get('thresold_perc2', None)
+    gmc_catalog2 = kwargs.get('gmc_catalog2', None)
     arm = kwargs.get('arm', None)
     out = kwargs.get('out', None)
     cent = kwargs.get('cent', None)
     region = kwargs.get('region', None)
+    plot_lr = kwargs.get('plot_lr', None)
+    plot_double_lr = kwargs.get('plot_double_lr', None)
 
 
 
-
+    def save_pdf(pdf, fig):
+        if save == True:
+            pdf.savefig(fig)
+        if show == True:
+            plt.show()
+        else:
+            plt.close()
 
     def checknaninf(v1, v2, lim1, lim2):
         v1n = np.array(v1)
@@ -63,7 +78,10 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
         return xbinned, ybinned, eybinned, nybinned
 
     def plot_binned_regions(labsxax, labsyay, arrayxax1, arrayyay1, pdf_name, regions_id):
-        pdf4 = fpdf.PdfPages(pdf_name)  # type: PdfPages
+        if save == True:
+            pdf4 = fpdf.PdfPages(pdf_name)  # type: PdfPages
+        else:
+            pdf4 = fpdf.PdfPages("blank")
         print("Starting loop to create figures of all galaxies together - binned")
 
         arrayxax = arrayxax1
@@ -84,7 +102,7 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
             sns.set(style='white', color_codes=False)
             fig, axs = plt.subplots(4, 2, sharex='col', figsize=(8, 10), gridspec_kw={'hspace': 0})
             plt.subplots_adjust(wspace=0.3)
-            fig.suptitle('All galaxies - Overlapping HIIregions and GMCs', fontsize=18, va='top')
+            fig.suptitle('All galaxies - Overlapping HIIregions and GMCs \n %s%s \n regions = %s' %(name_end,typegmc,str(regions_id)), fontsize=18, va='top')
             axs = axs.ravel()
             #    print "starting for i"
             # Galactic distance vs: Mco, avir, sigmav,Sigmamol
@@ -156,9 +174,10 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
                     my0 = y0 - (yf - y0) * 0.13
                     # axs[i].set(xlim=(x0,xf))
                     axs[i].set(ylim=(y0, yf))
-                    axs[i].text(0.85, 0.1, 'R^2: %6.2f' % (r_sq), fontsize=8, horizontalalignment='center',
+                    axs[i].text(0.8, 0.1, 'R^2: %6.2f' % (r_sq), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
-                    axs[i].text(0.15, 0.1, 'Slope %5.2f' % slope, fontsize=8, horizontalalignment='center',
+
+                    axs[i].text(0.15, 0.1, 'Slope %5.2f' % (slope), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
 
             #        axs[i].set(ylim=(y0-(yf-y0)*0.15,yf+(yf-y0)*0.15))
@@ -166,23 +185,23 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
             axs[0].legend(prop={'size': 9})
             axs[6].set(xlabel=labsxax[k])
             axs[7].set(xlabel=labsxax[k])
-            #pdf4.savefig(fig)
-            plt.show()
-            #plt.close()
-
-        pdf4.close()
+            save_pdf(pdf4, fig)
+        if save == True:
+            pdf4.close()
 
     def plot_double_binned(labsxax, labsyay, arrayxax, arrayxax_no, arrayyay, arrayyay_no, pdf_name):
         # Plot binned
-        pdf4 = fpdf.PdfPages(
-            "%sCorrelations_allgals_GMC_binned_without_outliers%s.pdf" % (dirplots, namegmc))  # type: PdfPages
+        if save == True:
+            pdf4 = fpdf.PdfPages(pdf_name)  # type: PdfPages
+        else:
+            pdf4 = fpdf.PdfPages("blank")
         print("Starting loop to create figures of all galaxies together - binned")
         for k in range(len(arrayxax)):
             #    print "starting for k"
             sns.set(style='white', color_codes=False)
             fig, axs = plt.subplots(4, 2, sharex='col', figsize=(8, 10), gridspec_kw={'hspace': 0})
             plt.subplots_adjust(wspace=0.3)
-            fig.suptitle('All galaxies - Overlapping HIIregions and GMCs', fontsize=18, va='top')
+            fig.suptitle('All galaxies - Overlapping HIIregions and GMCs \n %s%s \n %s%s' %(name_end,typegmc, name_end1,typegmc1), fontsize=18, va='top')
             axs = axs.ravel()
             #    print "starting for i"
             # Galactic distance vs: Mco, avir, sigmav,Sigmamol
@@ -307,9 +326,10 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
                     my0 = y0 - (yf - y0) * 0.13
                     # axs[i].set(xlim=(x0,xf))
                     axs[i].set(ylim=(y0, yf))
-                    axs[i].text(0.85, 0.1, 'R^2: %6.2f' % (r_sq), fontsize=8, horizontalalignment='center',
+                    axs[i].text(0.8, 0.1, 'R^2: %6.2f' % (r_sq), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
-                    axs[i].text(0.15, 0.1, 'Slope %5.2f' % slope, fontsize=8, horizontalalignment='center',
+
+                    axs[i].text(0.15, 0.1, 'Slope %5.2f' % (slope) , fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
                     #        axs[i].set(ylim=(y0-(yf-y0)*0.15,yf+(yf-y0)*0.15))
                     #        axs[i].set(xlim=(xmin - xprang*3, xmax + xprang*3))
@@ -352,9 +372,10 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
                     my0 = y0 - (yf - y0) * 0.13
                     # axs[i].set(xlim=(x0,xf))
                     axs[i].set(ylim=(y0, yf))
-                    axs[i].text(0.80, 0.04, 'R^2_new: %6.2f' % (r_sq_no), fontsize=8, horizontalalignment='center',
+                    axs[i].text(0.8, 0.04, 'R^2_other : %6.2f' % (r_sq_no), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
-                    axs[i].text(0.20, 0.04, 'Slope_new %5.2f' % slope_no, fontsize=8, horizontalalignment='center',
+
+                    axs[i].text(0.20, 0.04, 'Slope_other : %5.2f' %(slope_no), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
             #        axs[i].set(ylim=(y0-(yf-y0)*0.15,yf+(yf-y0)*0.15))
             #        axs[i].set(xlim=(xmin - xprang*3, xmax + xprang*3))
@@ -362,13 +383,16 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
             axs[0].legend(prop={'size': 9})
             axs[6].set(xlabel=labsxax[k])
             axs[7].set(xlabel=labsxax[k])
-            pdf4.savefig(fig)
-            plt.close()
-
-        pdf4.close()
+            save_pdf(pdf4, fig)
+        if save == True:
+            pdf4.close()
 
     def plot_binned(labsxax, labsyay, arrayxax1, arrayyay1, pdf_name):
-        pdf4 = fpdf.PdfPages(pdf_name)  # type: PdfPages
+
+        if save == True:
+            pdf4 = fpdf.PdfPages(pdf_name)  # type: PdfPages
+        else:
+            pdf4 = fpdf.PdfPages("blank")
         print("Starting loop to create figures of all galaxies together - binned")
 
         arrayxax = arrayxax1
@@ -379,7 +403,7 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
             sns.set(style='white', color_codes=False)
             fig, axs = plt.subplots(4, 2, sharex='col', figsize=(8, 10), gridspec_kw={'hspace': 0})
             plt.subplots_adjust(wspace=0.3)
-            fig.suptitle('All galaxies - Overlapping HIIregions and GMCs', fontsize=18, va='top')
+            fig.suptitle('All galaxies - Overlapping HIIregions and GMCs \n %s%s' %(name_end, typegmc), fontsize=18, va='top')
             axs = axs.ravel()
             #    print "starting for i"
             # Galactic distance vs: Mco, avir, sigmav,Sigmamol
@@ -451,9 +475,10 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
                     my0 = y0 - (yf - y0) * 0.13
                     # axs[i].set(xlim=(x0,xf))
                     axs[i].set(ylim=(y0, yf))
-                    axs[i].text(0.85, 0.1, 'R^2: %6.2f' % (r_sq), fontsize=8, horizontalalignment='center',
+                    axs[i].text(0.8, 0.1, 'R^2: %6.2f' % (r_sq), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
-                    axs[i].text(0.15, 0.1, 'Slope %5.2f' % slope, fontsize=8, horizontalalignment='center',
+
+                    axs[i].text(0.15, 0.1, 'Slope %5.2f' % (slope), fontsize=8, horizontalalignment='center',
                                 verticalalignment='center', transform=axs[i].transAxes)
 
             #        axs[i].set(ylim=(y0-(yf-y0)*0.15,yf+(yf-y0)*0.15))
@@ -461,18 +486,18 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
             axs[0].legend(prop={'size': 9})
             axs[6].set(xlabel=labsxax[k])
             axs[7].set(xlabel=labsxax[k])
-            pdf4.savefig(fig)
-            plt.close()
+            save_pdf(pdf4, fig)
+        if save == True:
+            pdf4.close()
 
-        pdf4.close()
-
-    def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_']
+    def name(overperc, without_out, new_muse, threshold_perc):
+        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc)]
 
         if new_muse == True:
             name_end = name_append[3]
             if overperc == True:
-                name_end = name_end + name_append[0]
+                name_end = name_end + name_append[0] + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
@@ -481,7 +506,7 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
         else:
             name_end = name_append[4]
             if overperc == True:
-                name_end = name_end + name_append[0]
+                name_end = name_end + name_append[0] + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
@@ -490,19 +515,23 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
 
 
     # ==============================================================================#
-    #typegmc1 = ''  # match_, match_homogenized_ (nothing for native)
     typegmc = gmc_catalog#'_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
-    # ==============================================================================#
     overperc = overlap_matching
     without_out = not outliers
-    name_end = name(overperc, without_out, new_muse)
+    name_end = name(overperc, without_out, new_muse, threshold_perc)
+    # ==============================================================================#
 
     overperc1 = overlap_matching2
     without_out1 = not outliers2
     new_muse1 = new_muse2
-    name_end1 = name(overperc1, without_out1, new_muse1)
+    name_end1 = name(overperc1, without_out1, new_muse1, threshold_perc=threshold_perc2)
+    typegmc1 = gmc_catalog2
+
 
     namegmc = "_12m+7m+tp_co21%sprops" % typegmc
+    namegmc1 = "_12m+7m+tp_co21%sprops" % typegmc1
+    print(namegmc1)
+    print(name_end1)
 
     # ====================================================================================================================#
 
@@ -540,32 +569,33 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
     arrayxax = HIIprop
 
     # ======================================other file if need to compare two sets of data==========================================================================================#
+    if plot_double_lr == True:
+        galaxias_no, GMCprop1_no, HIIprop1_no, RAgmc_no, DECgmc_no, RAhii_no, DEChii_no, labsxax_no, labsyay_no = pickle.load(
+            open('%sGalaxies_variables_GMC%s%s.pickle' % (dirmuseproperties, namegmc1, name_end1), "rb"))
 
-    galaxias_no, GMCprop1_no, HIIprop1_no, RAgmc_no, DECgmc_no, RAhii_no, DEChii_no, labsxax_no, labsyay_no = pickle.load(
-        open('%sGalaxies_variables_GMC%s%s.pickle' % (dirmuseproperties, namegmc, name_end1), "rb"))
+        SizepcHIIover_no, LumHacorrover_no, sigmavHIIover_no, ratlin_no, metaliHIIover_no, varmetHIIover_no, \
+        velHIIover_no, HIIminorover_no, HIImajorover_no, HIIangleover_no = HIIprop1_no
 
-    SizepcHIIover_no, LumHacorrover_no, sigmavHIIover_no, ratlin_no, metaliHIIover_no, varmetHIIover_no, \
-    velHIIover_no, HIIminorover_no, HIImajorover_no, HIIangleover_no = HIIprop1_no
+        HIIprop_no = SizepcHIIover_no, LumHacorrover_no, sigmavHIIover_no, ratlin_no, metaliHIIover_no, varmetHIIover_no
 
-    HIIprop_no = SizepcHIIover_no, LumHacorrover_no, sigmavHIIover_no, ratlin_no, metaliHIIover_no, varmetHIIover_no
+        DisHIIGMCover_no, MasscoGMCover_no, SizepcGMCover_no, Sigmamoleover_no, sigmavGMCover_no, aviriaGMCover_no, TpeakGMCover_no, \
+        tauffGMCover_no, velGMCover_no, angleGMCover_no, majorGMCover_no, minorGMCover_no, regionindexGMCover_no = GMCprop1_no
 
-    DisHIIGMCover_no, MasscoGMCover_no, SizepcGMCover_no, Sigmamoleover_no, sigmavGMCover_no, aviriaGMCover_no, TpeakGMCover_no, \
-    tauffGMCover_no, velGMCover_no, angleGMCover_no, majorGMCover_no, minorGMCover_no, regionindexGMCover_no = GMCprop1_no
+        GMCprop_no = DisHIIGMCover_no, MasscoGMCover_no, SizepcGMCover_no, Sigmamoleover_no, sigmavGMCover_no, aviriaGMCover_no, TpeakGMCover_no, tauffGMCover_no
 
-    GMCprop_no = DisHIIGMCover_no, MasscoGMCover_no, SizepcGMCover_no, Sigmamoleover_no, sigmavGMCover_no, aviriaGMCover_no, TpeakGMCover_no, tauffGMCover_no
+        SizepcHII_no, LumHacorr_no, sigmavHII_no, metaliHII_no, varmetHII_no, numGMConHII_no, \
+        MasscoGMC_no, HIIminor_no, HIImajor_no, HIIangle_no, angleGMC_no, majorGMC_no, minorGMC_no = pickle.load(
+            open('%sGalaxies_variables_notover_GMC%s%s.pickle' % (dirmuseproperties, namegmc1, name_end1), "rb"))
 
-    SizepcHII_no, LumHacorr_no, sigmavHII_no, metaliHII_no, varmetHII_no, numGMConHII_no, \
-    MasscoGMC_no, HIIminor_no, HIImajor_no, HIIangle_no, angleGMC_no, majorGMC_no, minorGMC_no = pickle.load(
-        open('%sGalaxies_variables_notover_GMC%s%s.pickle' % (dirmuseproperties, namegmc, name_end1), "rb"))
+        shortlab_no = ['HIIGMCdist', 'Mco', 'GMCsize', 'Smol', 'sigmav', 'avir', 'TpeakCO', 'tauff']
+        MassesCO_no = [1e5 * i for i in MasscoGMCover_no]  #
 
-    shortlab_no = ['HIIGMCdist', 'Mco', 'GMCsize', 'Smol', 'sigmav', 'avir', 'TpeakCO', 'tauff']
-    MassesCO_no = [1e5 * i for i in MasscoGMCover_no]  #
+        labsyay_no = labsyay_no[
+                     0:len(labsyay_no) - 5]  # removing  vel, major axis, minor axis and PA, no need to plot them
+        labsxax_no = labsxax_no[0:len(labsxax_no) - 4]
 
-    labsyay_no = labsyay_no[0:len(labsyay_no) - 5]  # removing  vel, major axis, minor axis and PA, no need to plot them
-    labsxax_no = labsxax_no[0:len(labsxax_no) - 4]
-
-    arrayyay_no = GMCprop_no
-    arrayxax_no = HIIprop_no
+        arrayyay_no = GMCprop_no
+        arrayxax_no = HIIprop_no
 
     # =======================================================================================================================================#
 
@@ -573,13 +603,12 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
 
     for i in range(np.shape(arrayxax)[1]):
         count.append(len(arrayxax[1][i]))
-    print(np.sum(count))  # total number of hii regions
+    print("total number of HII regions that are matched : %i   (%s)"%(np.sum(count), name_end))  # total number of hii regions
 
     # =====================================================================================================================================#
 
     # Limits in the properties of HIIR and GMCs
-    xlim, ylim, xx, yy = pickle.load(
-        open('limits_properties.pickle', "rb"))  # comment this line if the file limit has not been run yet
+    xlim, ylim, xx, yy = pickle.load(open('limits_properties.pickle', "rb"))  # comment this line if the file limit has not been run yet
 
     # =====================================================================================================================================#
 
@@ -587,32 +616,45 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
 
     if cent == True :
         regions_id = (1, 2, 3)
-        pdf_name = "%sCorrelations_allgals_GMC_binned_int%s.pdf" % (dirplots, namegmc)
+        pdf_name = "%sCorrelations_allgals_GMC_binned_int%s%s.pdf" % (dirplots, namegmc, name_end)
         plot_binned_regions(labsxax,labsyay,arrayxax,arrayyay,pdf_name, regions_id)
 
     if arm == True:
         regions_id = (5, 6)
-        pdf_name = "%sCorrelations_allgals_GMC_binned_arm%s.pdf" % (dirplots, namegmc)
+        pdf_name = "%sCorrelations_allgals_GMC_binned_arm%s%s.pdf" % (dirplots, namegmc, name_end)
         plot_binned_regions(labsxax,labsyay,arrayxax,arrayyay,pdf_name, regions_id)
 
     if out == True:
         regions_id = (7, 8, 9)
-        pdf_name = "%sCorrelations_allgals_GMC_binned_out%s.pdf" % (dirplots, namegmc)
+        pdf_name = "%sCorrelations_allgals_GMC_binned_out%s%s.pdf" % (dirplots, namegmc, name_end)
         plot_binned_regions(labsxax,labsyay,arrayxax,arrayyay,pdf_name, regions_id)
 
-    region = list(region)
-    if len(region) > 1:
+    if type(region) != NoneType:
+        region = list(region)
         regions_id = region
         print(type(regions_id))
-        pdf_name = "%sCorrelations_allgals_GMC_binned_regions%s.pdf" % (dirplots, namegmc)
+        pdf_name = "%sCorrelations_allgals_GMC_binned_regions%s%s.pdf" % (dirplots, namegmc, name_end)
         plot_binned_regions(labsxax, labsyay, arrayxax, arrayyay, pdf_name, regions_id)
 
-    # ===========================================================================================================================#
+    if plot_lr == True:
+        pdf_name = "%sCorrelations_allgals_GMC_binned%s%s.pdf" % (dirplots, namegmc, name_end)
+        plot_binned(labsxax, labsyay, arrayxax, arrayyay, pdf_name)
 
-    # ===========================================================================================================================#
+    if plot_double_lr == True:
+        pdf_name = "%sCorrelations_allgals_GMC_binned%s%s%s.pdf" % (dirplots, namegmc, name_end, name_end1)
+        plot_double_binned(labsxax, labsyay, arrayxax, arrayxax_no, arrayyay, arrayyay_no, pdf_name)
 
-    pdf_name = "%sCorrelations_allgals_GMC_binned%s.pdf" % (dirplots, namegmc)
-    plot_double_binned(labsxax, labsyay, arrayxax, arrayxax_no, arrayyay, arrayyay_no, pdf_name)
-    # ===========================================================================================================================#
 
-binned_linear_regression(True,"_native_",False, True, True, False, region = (1,2,3,4,5))
+
+
+binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = True, outliers = True, show = False, save = True, threshold_perc = 0.5, new_muse2= False, overlap_matching2= False, outliers2= True, threshold_perc2 = 0.5, plot_double_lr= True, gmc_catalog2 = "_native_")
+#binned_linear_regression(new_muse = True, gmc_catalog = "_native_", overlap_matching = True, outliers = True, show = True, save = False, threshold_perc = 0.9, plot_lr= True)
+
+#new_muse2 = kwargs.get('new_muse2', None)
+#overlap_matching2 = kwargs.get('overlap_matching2', None)
+#outliers2 = kwargs.get('outliers2', None)
+#arm = kwargs.get('arm', None)
+#out = kwargs.get('out', None)
+#cent = kwargs.get('cent', None)
+#region = kwargs.get('region', None)
+#plot_lr = kwargs.get('plot_lr', None)

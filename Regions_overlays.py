@@ -12,21 +12,31 @@ from regions import EllipseSkyRegion, CircleSkyRegion
 from astropy.coordinates import SkyCoord
 from astropy.coordinates import FK5
 from spectral_cube import Projection
+import warnings
+warnings. filterwarnings("ignore")
 
-def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *args, **kwargs):
-
+def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, threshold_perc, *args, **kwargs):
 
     paired = kwargs.get('paired', None)
     unpaired = kwargs.get('unpaired', None)
     all = kwargs.get('all', None)
 
+
+    def save_pdf(pdf):
+        if save == True:
+            pdf.savefig(fig)
+        if show == True:
+            plt.show()
+        else:
+            plt.close()
+
     def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_']
+        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
 
         if new_muse == True:
             name_end = name_append[3]
             if overperc == True:
-                name_end = name_end + name_append[0]
+                name_end = name_end + name_append[0] +name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
@@ -35,12 +45,13 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
         else:
             name_end = name_append[4]
             if overperc == True:
-                name_end = name_end + name_append[0]
+                name_end = name_end + name_append[0] + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
         return name_end
+
 
     def paired1():
         major_over = HIImajorover[j]
@@ -57,8 +68,6 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
         k = 0
         for i in range(len(hii_regions_paired)):
             center = hii_regions_paired[i].center
-            print("major over =%i" %len(major_over))
-            print("hii_regions_paired= %i" %len(hii_regions_paired))
             circle_sky = CircleSkyRegion(center=center, radius=major_over[i] * u.deg)
             circle_pixel = circle_sky.to_pixel(wcs=WC)
             circle_pixel.plot(color='green')
@@ -70,8 +79,7 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
                                                angle=(angle_gmc_over[i]) * u.deg)
             ellipse_pixel_gmc = ellipse_sky_gmc.to_pixel(wcs=WC)
             ellipse_pixel_gmc.plot(color='lime')
-            # pdf1.savefig()
-            # plt.close()
+
 
     def unpaired1():
         a = [hii_regions[i].center.to_pixel(wcs=WC) for i in range(len(hii_regions))]
@@ -118,10 +126,6 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
             ellipse_pixel_gmc.plot(color='red')
 
         # fig.colorbar(cm.ScalarMappable( norm = norme ,cmap=RdBu))
-
-        #plt.show()
-        #pdf2.savefig()
-        #plt.close()
 
     def paired_and_unpaired():
         # ===== Check with HII regions and GMCs are not paired by differentiating all hii regions and gmcs and the one that are paired ===== #
@@ -190,12 +194,8 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
             circle_pixel = circle_sky.to_pixel(wcs=WC)
             circle_pixel.plot(color='green')
 
-        #plt.show()
-        #pdf3.savefig()
-        #plt.close()
 
 
-    typegmc1 = ''  # match_, match_homogenized_ (nothing for native)
     typegmc = gmc_catalog#'_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
     # ==============================================================================#
 
@@ -211,20 +211,15 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
 
     if new_muse == False:
         dirplots = dirplots1
-        name_gmc = "_12m+7m+tp_co21_native_props-GMCs-overlapped_old_muse.reg"
-        name_hii = "_12m+7m+tp_co21_native_props-HIIregions-overlapped_old_muse.reg"
-        name_hii_all = "_12m+7m+tp_co21_native_props-HIIregions-all_regions_old_muse.reg"
-        name_gmc_all = "_12m+7m+tp_co21_native_props-GMCs-all_regions_old_muse.reg"
-
         dirregions = dirregions1
     else:
         dirplots = dirplots2
-        name_gmc = "_12m+7m+tp_co21_native_props-GMCs-overlapped_new_muse.reg"
-        name_hii = "_12m+7m+tp_co21_native_props-HIIregions-overlapped_new_muse.reg"
-        name_hii_all = "_12m+7m+tp_co21_native_props-HIIregions-all_regions_new_muse.reg"
-        name_gmc_all = "_12m+7m+tp_co21_native_props-GMCs-all_regions_new_muse.reg"
-
         dirregions = dirregions2
+
+    name_gmc = "_12m+7m+tp_co21" + typegmc + "props-GMCs-matched" + name_end+".reg"
+    name_hii = "_12m+7m+tp_co21" + typegmc + "props-HIIregions-matched"+ name_end + ".reg"
+    name_hii_all = "_12m+7m+tp_co21" + typegmc + "props-HIIregions-all_regions" + name_end + ".reg"
+    name_gmc_all = "_12m+7m+tp_co21" + typegmc + "props-GMCs-all_regions" + name_end + ".reg"
 
     galaxias, GMCprop, HIIprop, RAgmc, DECgmc, RAhii, DEChii, labsxax, labsyay = pickle.load(
         open('%sGalaxies_variables_GMC%s%s.pickle' % (dirmuseproperties, namegmc, name_end), "rb"))
@@ -235,15 +230,17 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
         open('%sGalaxies_variables_notover_GMC%s%s.pickle' % (dirmuseproperties, namegmc, name_end), "rb"))
 
     # ==========================All Paired and unpaired=====================================#
-    pdf1 = fpdf.PdfPages("%sOverlays_paired_Muse_%s.pdf" % (dirplots, namegmc))  # type: PdfPages
-    pdf2 = fpdf.PdfPages("%sOverlays_unpaired_Muse_%s.pdf" % (dirplots, namegmc))  # type: PdfPages
-    pdf3 = fpdf.PdfPages("%sOverlays_paired_and_unpaired_Muse_%s.pdf" % (dirplots, namegmc))  # type: PdfPages
+    if paired == True or all == True:
+        pdf1 = fpdf.PdfPages("%sOverlays_paired_Muse_%s%s.pdf" % (dirplots, namegmc, name_end))  # type: PdfPages
+    if unpaired == True or all == True:
+        pdf2 = fpdf.PdfPages("%sOverlays_unpaired_Muse_%s%s.pdf" % (dirplots, namegmc, name_end))  # type: PdfPages
+    if (paired == True and unpaired == True) or all == True:
+        pdf3 = fpdf.PdfPages("%sOverlays_paired_and_unpaired_Muse_%s%s.pdf" % (dirplots, namegmc, name_end))  # type: PdfPages
 
     name = "_ha.fits"  # "_Hasub_flux.fits"
     for j in range(len(galaxias)):
 
-        print("%s%s%s.fits" % (dirmaps, str.upper(galaxias[j]), name))
-        print("%s%s%s" % (dirregions, galaxias[j], name_gmc))
+
         if os.path.isfile("%s%s%s" % (dirmaps, str.upper(galaxias[j]), name)) == True:
             if os.path.isfile("%s%s%s" % (dirregions, galaxias[j], name_gmc)) == True and os.path.isfile(
                     "%s%s%s" % (dirregions, galaxias[j], name_hii)) == True:
@@ -272,23 +269,34 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *arg
                 if paired == True:
                     if unpaired == True:
                         paired_and_unpaired()
+                        save_pdf(pdf3)
                     else:
                         paired1()
+                        save_pdf(pdf1)
                 else:
                     if unpaired == True:
                         if paired == True:
                             paired_and_unpaired()
+                            save_pdf(pdf3)
                         else:
                             unpaired1()
+                            save_pdf(pdf2)
                 if all == True:
                     paired1()
                     unpaired1()
                     paired_and_unpaired()
+                    save_pdf(pdf1)
+                    save_pdf(pdf2)
+                    save_pdf(pdf3)
 
                 # fig.colorbar(cm.ScalarMappable( norm = norme ,cmap=RdBu))
 
-                plt.show()
 
-    pdf3.close()
+    if paired == True or all == True:
+        pdf1.close()
+    if unpaired == True or all == True:
+        pdf2.close()
+    if paired_and_unpaired() == True or all == True:
+        pdf3.close()
 
-overlays(new_muse = True, gmc_catalog = "_120pc_match_", overlap_matching = True, outliers = True,show = True, save = False, paired = True)
+#overlays(new_muse = False, gmc_catalog = "_120pc_match_", overlap_matching = False, outliers = True,show = True, save = False, threshold_perc = 0.4,  paired = True)

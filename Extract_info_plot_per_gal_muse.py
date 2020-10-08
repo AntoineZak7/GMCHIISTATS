@@ -23,15 +23,15 @@ sns.set(style="white", color_codes=True)
 c = 299792.458
 # ===================================================================================
 
-def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
+def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_perc):
 
     def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_']
+        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
 
         if new_muse == True:
             name_end = name_append[3]
             if overperc == True:
-                name_end = name_end + name_append[0]
+                name_end = name_end + name_append[0] +name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
@@ -40,15 +40,14 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
         else:
             name_end = name_append[4]
             if overperc == True:
-                name_end = name_end + name_append[0]
+                name_end = name_end + name_append[0] + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
         return name_end
 
-    def vgsr_to_vhel(ra, dec,
-                     vgsr):  # This is a copy paste of a gala v0.1.0 routine https://gala-astro.readthedocs.io/en/v0.1.0/_modules/gala/coordinates/core.html#vhel_to_vgsr
+    def vgsr_to_vhel(ra, dec, vgsr):  # This is a copy paste of a gala v0.1.0 routine https://gala-astro.readthedocs.io/en/v0.1.0/_modules/gala/coordinates/core.html#vhel_to_vgsr
         """
         Convert a radial velocity in the Galactic standard of rest (GSR) to
         a barycentric radial velocity.
@@ -87,53 +86,6 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
         vhel = lsr - v_correct
 
         return vhel
-
-    def checkdist(xgalhii, ygalhii, xgalgmc, ygalgmc, sizehii, radgmc, distance):
-        dists = np.zeros((2, len(xgalgmc)))
-        for j in range(len(xgalgmc)):
-            distas = ((xgalgmc[j] - xgalhii) ** 2 + (ygalgmc[j] - ygalhii) ** 2) ** 0.5
-            dist = np.radians(distas / 3600) * distance * 1e6  # distance between the GMC and all HII regions in pc
-            # Save the index and value of the minimum distance for a given GMC
-            dists[0, j] = int(np.argmin(dist))
-            dists[1, j] = min(dist)
-        mindist = dists[1,]
-        inddist = dists[0,]
-
-        idgmc = []
-        idhii = []
-        distmin = []
-        indall = range(len(inddist))  # it will be the index of my index position of the HIIR.
-
-        # Removing HIIR that are doubled, i.e. the same HIIR paired with more than 1 GMC.
-        for idint, it in enumerate(inddist):  # a for loop in all gmcs, reading the index of the HIIR
-            indw = np.where(inddist == it)[0]  #### Looking for the same index of HIIR, it, in the entire saved index.
-            # If the same GMC has being paired twice, we should have several indices in indw
-            if len(indw) > 1:
-                igmc = np.extract(inddist == it,
-                                  indall)  # extract the index of the gmcs associated to the same HIIR, igmc.
-                imin = np.argmin(np.extract(inddist == it,
-                                            mindist))  # get the index of the minimum distance between all index that are it
-                dmin = np.min(
-                    np.extract(inddist == it, mindist))  # get the  minimum distance between all index that are it
-                indgmc = igmc[
-                    imin]  # Index of the GMC that is the closest to the HIIR that was associated to different GMCs. Only this one will be saved.
-                if it not in idhii:
-                    idhii.append(int(it))
-                    distmin.append(dmin)
-                    idgmc.append(indgmc)
-            else:
-                idhii.append(int(it))  # indice del HIIRegion
-                distmin.append(np.extract(inddist == it, mindist))
-                idgmc.append(idint)
-
-        # @ Index  idhii idgmc
-        addsize = sizehii[idhii] + radgmc[idgmc]
-        # tmpoverid = np.argwhere(dists[1,idgmc] < (sizehii[idhii]*2)) # HII with GMCs < 2 sizeHII type: List[int]
-        tmpoverid = np.argwhere(mindist[idgmc] < addsize)
-        overid = [int(item) for item in tmpoverid]
-        idovergmc = [idgmc[item] for item in overid]
-        idoverhii = [idhii[item] for item in overid]
-        return mindist, inddist, idovergmc, idoverhii
 
     def without_outlier(idoverhii, idovergmc, velhii_gal, velgmc_gal):
         # =========================Getting all the GMC and HII properties from the pickle files===============================#
@@ -228,6 +180,13 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
         idovergmc = [idgmc[item] for item in overid]
         idoverhii = [idhii[item] for item in overid]
         return mindist, inddist, idovergmc, idoverhii
+
+    def findist(rahii, dechii, ragmc, decgmc,  distance):
+        distas = np.array(((ragmc[idovergmc] - rahii[idoverhii]) ** 2 + (decgmc[idovergmc] - dechii[idoverhii]) ** 2) ** 0.5)  # array of distance between GMC(j) and all the HII regions
+        distas = np.array(distas) * distance[0]
+        print(distas)
+        return distas          # indexes of where the distance is <= radius hii + radius gmc
+
 
     def overlap_percent(rahii, dechii, major_gmc, minor_gmc, angle_gmc, decgmc, ragmc, radiushii, radgmc, header,
                         threshold_perc):
@@ -447,29 +406,29 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
         nonan = var1[~np.isnan(var1)]
         return nonan
 
+
     # ===================================================================================
-    #typegmc1 = ''  # match_, match_homogenized_
     typegmc = gmc_catalog#'_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
     overperc = overlap_matching
     without_out = not outliers
     name_end = name(overperc, without_out, new_muse)
-    #new_muse = True
     # ---------------------------------------------
 
-    # Defining paths to the files and files names
-
+    # Defining paths to the files and files names !!! TO CHANGE !!!
+ #======================================================================================================================================================================"
     dirhii = "/home/antoine/Internship/muse_hii/"  # old muse tables directory
     dirhii_new = "/home/antoine/Internship/muse_hii_new/"  # new muse tables directory
     dirgmc = '/home/antoine/Internship/gmccats_st1p5_amended/'  # gmc tables directory
 
-    dirregions1 = "/home/antoine/Internship/ds9tables/Muse/Old_Muse/"  # Must create a directory to stock the region ds9 files before running the code for the first time
-    dirregions2 = "/home/antoine/Internship/ds9tables/Muse/New_Muse/"
+    dirregions1 = "/home/antoine/Internship/ds9tables/Muse/Old_Muse/"  # Must create a directory to save the region ds9 files before running the code for the first time
+    dirregions2 = "/home/antoine/Internship/ds9tables/Muse/New_Muse/" # same but for new muse catalog
 
     dirmaps = "/home/antoine/Internship/Galaxies/New_Muse/"  # maps directory (to plot the overlays)
 
-    dirplots1 = "/home/antoine/Internship/Plots_Muse/Old_Muse/"  # directories to save the plots
-    dirplots2 = "/home/antoine/Internship/Plots_Muse/New_Muse/"
-    dirplots = "/home/antoine/Internship/Plots_Muse/"
+    dirplots1 = "/home/antoine/Internship/Plots_Muse/Old_Muse/"  # directories to save the plots (old muse catalog)
+    dirplots2 = "/home/antoine/Internship/Plots_Muse/New_Muse/" # directories to save the plots (new muse catalog)
+#========================================================================================================================================================================="
+
 
     # ---defining which directory to store the plots in----#
     if new_muse == False:
@@ -733,7 +692,7 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
 
             # ==========================================================================================
             # Write to DS9 readable table
-            writeds9(galnam, namegmc, rahii, dechii, pind, ragmc, decgmc, "all_regions", dirregions, new_muse)
+            writeds9(galnam, namegmc, rahii, dechii, pind, ragmc, decgmc, "all_regions", dirregions, name_end)
             # ==========================================================================================
 
             if without_out == True:
@@ -743,8 +702,8 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
 
             data = fits.open(dirmaps + str.upper(galnam) + namemap)
             header = data[0].header
-            threshold = 50
-            threshold_perc = 0.5
+            #threshold = 50
+            #threshold_perc = 0.5
 
             if overperc == True:
                 mindist, inddist, a, b = checkdist_2D(rahii, dechii, ragmc, decgmc, sizehii, radgmc,
@@ -769,8 +728,15 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
             HIImajor_galo = major[idoverhii]
             HIIminor_galo = minor[idoverhii]
             velGMC_galo = gmcvel[idovergmc]
+            distas = np.array(((ragmc[idovergmc] - rahii[idoverhii]) ** 2 + (
+                        decgmc[idovergmc] - dechii[idoverhii]) ** 2) ** 0.5)  # array of distance between GMC(j) and all the HII regions
+            #print(dist_gal_Mpc*10e6 * np.pi/180)
 
-            DisHIIGMC_galo = mindist[idovergmc]
+            distas = np.array(distas) * dist_gal_Mpc*10e6 * np.pi/180
+            #print(distas)
+            #test = findist(rahii[idoverhii], dechii[idoverhii], ragmc[idovergmc], decgmc[idovergmc],dist_gal_Mpc[idovergmc])
+            #print(test)
+            DisHIIGMC_galo = mindist[idovergmc] * dist_gal_Mpc*10e6 * np.pi/180
             SizepcGMC_galo = radgmc[idovergmc]
             sigmavGMC_galo = sigvgmc[idovergmc]
             MasscoGMC_galo = massco[idovergmc] / 1e5
@@ -800,8 +766,8 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers):
 
             # ==========================================================================================
             # Write to ds9 readable file
-            writeds9(galnam, namegmc, RAhii, DEChii, phii, RAgmc, DECgmc, "overlapped", dirregions, name_end)
-            writeds9_vel(galnam, namegmc, RAhii, DEChii, phii, RAgmc, DECgmc, DisHIIGMC_galo, "overlapped", dirregions,
+            writeds9(galnam, namegmc, RAhii, DEChii, phii, RAgmc, DECgmc, "matched", dirregions, name_end)
+            writeds9_vel(galnam, namegmc, RAhii, DEChii, phii, RAgmc, DECgmc, DisHIIGMC_galo, "matched", dirregions,
                          name_end)  # write region to ds9 files with size corresponding to GMC to HII distance
             # ==========================================================================================
 
