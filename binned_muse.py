@@ -646,7 +646,7 @@ def binned_linear_regression(new_muse, gmc_catalog, matching, outliers, show, sa
 
 
 #binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = True, outliers = True, show = True, save =False, threshold_perc = 0.5, new_muse2= False, overlap_matching2= False, outliers2= True, threshold_perc2 = 0.1, plot_double_lr= True, gmc_catalog2 = "_native_")
-binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = False, outliers = True, show = True, save = False, threshold_perc = 0.5, plot_lr= True)
+#binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = False, outliers = True, show = True, save = False, threshold_perc = 0.5, plot_lr= True)
 
 #new_muse2 = kwargs.get('new_muse2', None)
 #overlap_matching2 = kwargs.get('overlap_matching2', None)
