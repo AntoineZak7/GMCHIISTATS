@@ -1,0 +1,19 @@
+After downloading the scripts, to run them properly on a new computer, different file directories must be specified in extract_info_plot_per_gal_muse, so from lines 646 to 658:
+For example:
+
+    # ======================================================================================================================================================================"
+    dirhii = "/home/antoine/Internship/muse_hii/"  # old muse tables directory
+    dirhii_new = "/home/antoine/Internship/muse_hii_new/"  # new muse tables directory
+    dirgmc = '/home/antoine/Internship/gmccats_st1p5_amended/'  # gmc tables directory
+
+    dirregions1 = "/home/antoine/Internship/ds9tables/Muse/Old_Muse/"  # Must create a directory to save the region ds9 files before running the code for the first time
+    dirregions2 = "/home/antoine/Internship/ds9tables/Muse/New_Muse/"  # same but for new muse catalog
+
+    dirmaps = "/home/antoine/Internship/Galaxies/New_Muse/"  # maps directory (to plot the overlays)
+
+    dirplots1 = "/home/antoine/Internship/Plots_Muse/Old_Muse/"  # directories to save the plots (old muse catalog)
+    dirplots2 = "/home/antoine/Internship/Plots_Muse/New_Muse/"  # directories to save the plots (new muse catalog)
+    # ========================================================================================================================================================================="
+
+Also it's necessary to run once extract_info with x parameters/inputs (to save the results different files) before running the other scripts with these parameters, e.g plot different liner regressions from data matched with distance, old muse catalog, with outliers cannot be done before running once extract_info macthed with distance, old muse catalog, with outliers.
+

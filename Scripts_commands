@@ -1,0 +1,161 @@
+
+
+======================================================================================================================================================================================================
+EXTRACT INFO PLOT
+======================================================================================================================================================================================================
+
+This scripts match the hii regions and gmcs and then extract the relevant data of the matched HII regions and gmcs from the gmc and hii tables.
+
+--------------------------------------------------
+
+the methd inputs are:
+
+gmc_catalog : String, like "_native_", "_90pc_match_", "_120pc_homogenized-" etc... to specify which gmc catalog to use.
+
+new_muse: True or False, to specify which MUSE catalog to use.
+
+matching: string, "distance", "overlap_1o1" or "overlap_1om", to match by distance, overlap percentage (1 hii reguons per gmcs and 1 gmc per hii region) and ovelap percentage (1 gmc per hii region)
+
+outliers:True or False, to keep or not the outliers, i.e matched hii regions and gmcs with a vel offset > "*rms(vel offset)
+
+threshold_perc: Float, between 0 and 1, the the spatial overlap threshold for the matching, from 0 to 1 (gmc_area(pixels) / overlap area(pixels) needs to be specified even if not using the overlap matching
+
+-----------------------------------------------------
+
+Example:
+
+from Extract_info_plot_per_gal_muse import extract_info
+extract_info(gmc_catalog = "_native_", new_muse = False, matching = "overlap_1o1", outliers = True, threshold_perc = 0.4)
+
+
+======================================================================================================================================================================================================
+LINEAR REGRESSION
+======================================================================================================================================================================================================
+
+This scripts plots the gmc parameters as a function of the HII regions parameters.
+
+-----------------------
+
+the method inputs are:
+
+new_muse, matching, gmc_catalog and outliers as for extract info, to choose what to plot.
+
+show: True or False, to show the plots when running the script
+
+save: True or False, to save the plots when running the script
+
+plot_lr: True or not specified, to plot the different linear regressions
+
+region:list, ex 1,2,3,4, to plot the different linear regressions for hii regions and gmcs in certain regions of the galaxy (it's a list of regions id as
+
+out: True or not specified, to plot only parameters of the hii regions and gmcs from the outer part only of the galaxy (region id:)
+
+arm: True or not specified, to plot only parameters of the hii regions and gmcs from the arms only of the galaxy (region id:)
+
+in: True or not specified, to plot only parameters of the hii regions and gmcs from the inner part only of the galaxy (region id:)
+
+new_luse2, gmc_catalog2, overlap_matching2, outliers2 just as for new_muse etc... to specify a second set of data to plot from and to overlay two plots and compare (with plot_double_lr). Can be unspecified
+
+plot_double_lr: True or not specified, two overlay two plots from two different data sets
+
+-----------------------------------------------------------------------------------------
+
+Examples
+
+
+from binned_muse import binned_linear_regression
+
+binned_linear_regression(new_muse = False, gmc_catalog = "_native_", matching = "overlap_1o1", outliers = True, show = True, save = False,threshold_perc = 0.4, plot_lr = True)
+
+#binned_linear_regression(new_muse = False, gmc_catalog = "_native_", matching = "overlap_1o1", outliers = True, show = True, save =False, threshold_perc = 0.5, new_muse2= False, overlap_matching2= False, outliers2= True, threshold_perc2 = 0.1, plot_double_lr= True, gmc_catalog2 = "_native_")
+
+binned_linear_regression(new_muse = False, gmc_catalog = "_native_", matching = "overlap_1o1", outliers = True, show = True, save = False, threshold_perc = 0.5, out= True)
+
+binned_linear_regression(new_muse = False, gmc_catalog = "_native_", matching = "overlap_1o1", outliers = True, show = True, save = False, threshold_perc = 0.5, region= 1,2,3,4)
+
+
+
+======================================================================================================================================================================================================
+REGIONS OVERLAYS
+======================================================================================================================================================================================================
+
+This script plots the gmcs (as ellipses with geometric info from the tables) and hii regions (as circles with geometric info from the tables) overlayed on a black and white Ha map.
+
+blue hii region --> unmatched
+light green hii region --> matched
+red gmcs --> unmatched
+dark green gmcs --> matched
+
+----------------------------------------------------------------------------------
+
+The method inputs are:
+
+new_muse, gmc_catalog, matching, outliers, show, save, threshold_perc as for linear regression.
+
+paired: True or unspecified, to plot only the paired hii regions and gmcs
+
+unpaired: True or unspecified to plot the unpaired hii regions and gmcs
+
+all: True or unspecified to plot the paired, unpaired and paired + unpaired hii regions and gcms in 3 different pdfs
+
+Setting paired and unpaired to True will plot both the paired and unpaired gmcs and hii regions in the same pdf.
+
+-----------------------------------------------------------------------------------
+
+Examples
+
+from Regions_overlays import overlays
+overlays(new_muse = False, gmc_catalog = "_native_", matching = "overlap_1o1", outliers = True, show = True, save = False, threshold_perc = 0.4, paired = True)
+overlays(new_muse = False, gmc_catalog = "_native_", matching = "overlap_1o1", outliers = True, show = True, save = False, threshold_perc = 0.4, paired = True, unpaired = True)
+
+
+======================================================================================================================================================================================================
+DISTANCE GMC-HII
+======================================================================================================================================================================================================
+
+not finished yet
+
+from Dist_HII_GMC import dif_hii_gmc
+dif_hii_gmc(new_muse = False, gmc_catalog = "_120pc_match_", matching = "overlap_1o1", outliers = True,show = True, save = False)
+
+
+======================================================================================================================================================================================================
+VELOCITIES GMC-HII
+======================================================================================================================================================================================================
+
+This script plots different velocity offset histograms for the matched hii regions and gmcs
+
+-----------------------------------------------------------------------------------------------
+
+Script inputs:
+
+Same as for ectract_info
+
+-----------------------------------------------------------------------------------------------
+
+Examples:
+
+from GMC_HII_Velocities_muse import gmc_hii_vel
+gmc_hii_vel(new_muse = False, gmc_catalog = "_120pc_match_", matching = "overlap_1o1", threshold_perc = 0.1, outliers = True)
+
+
+======================================================================================================================================================================================================
+VELOCITIES OVERLAYS
+======================================================================================================================================================================================================
+
+This script plots the positions of the matched hii regions and gmcs and the color code corresponds to the velocity offset
+
+---------------------------------------------------------------------------------------------------
+
+Script inputs:
+
+Same as for extract_info
+
+---------------------------------------------------------------------------------------------------
+
+Examples
+
+from Regions_overlay_vel_muse import Vel_overlays
+Vel_overlays(new_muse = True, gmc_catalog = "_native_", matching = "overlap_1o1", threshold_perc = 0.1, outliers = True)
+
+
