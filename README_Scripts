@@ -1,3 +1,6 @@
+The different packages needed are: seaborn, sklearn, astropy, regions, scipy, numpy and matplotlib.
+
+
 After downloading the scripts, to run them properly on a new computer, different file directories must be specified in extract_info_plot_per_gal_muse, so from lines 646 to 658:
 For example:
 
