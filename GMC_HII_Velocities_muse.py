@@ -5,25 +5,24 @@ from itertools import chain
 import matplotlib.backends.backend_pdf as fpdf
 import os
 
-def gmc_hii_vel(new_muse, gmc_catalog, overlap_matching, threshold_perc, outliers):
-
-
-    def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
+def gmc_hii_vel(new_muse, gmc_catalog, matching, threshold_perc, outliers):
+    def name(matching, without_out, new_muse):
+        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc), 'perc_matching_1om']
 
         if new_muse == True:
-            name_end = name_append[3]
-            if overperc == True:
-                name_end = name_end + name_append[0] +name_append[5]
+            name_end = name_append[3] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
 
         else:
-            name_end = name_append[4]
-            if overperc == True:
-                name_end = name_end + name_append[0] + name_append[5]
+            name_end = name_append[4] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
@@ -34,10 +33,10 @@ def gmc_hii_vel(new_muse, gmc_catalog, overlap_matching, threshold_perc, outlier
 
     # ==============================================================================#
     typegmc = gmc_catalog  # '_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
-    overperc = overlap_matching  # True
+  # True
     without_out = not outliers
 
-    name_end = name(overperc, without_out, new_muse)
+    name_end = name(matching, without_out, new_muse)
     namegmc = "_12m+7m+tp_co21%sprops" % typegmc
 
     dirhii, dirgmc, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots = pickle.load(
@@ -78,23 +77,26 @@ def gmc_hii_vel(new_muse, gmc_catalog, overlap_matching, threshold_perc, outlier
         if j < len(galaxias):
             velhii = velHIIover[j]
             velgmc = velGMCover[j]
+
             # velhii = velhii[velhii != 0]
             # velgmc = velgmc[velgmc != 0]
 
-            max_velhii = np.nanmax(velhii) + 1
-            min_velhii = np.nanmin(velhii)
-            max_velgmc = np.nanmax(velgmc) + 1
-            min_velgmc = np.nanmin(velgmc)
-            binresolution = 50
-            bin_hii = np.arange(min_velhii, max_velhii, (max_velhii - min_velhii) / (binresolution))
-            bin_gmc = np.arange(min_velgmc, max_velgmc, (max_velgmc - min_velgmc) / (binresolution))
-            axs[j].hist(velhii, bins=bin_hii, histtype='stepfilled', label='%s' % galaxias[j],
-                        alpha=0.5)
-            axs[j].hist(velgmc, bins=bin_gmc, histtype='stepfilled', label='%s' % galaxias[j], alpha=0.5)
-            axs[j].legend(['HII', 'GMCs'])
-            axs[j].set_title('%s' % galaxias[j])
-            axs[j].grid(alpha=0.3)
-            axs[j].set_xlabel('Velocity (km/s)')
+            print(np.size(velhii))
+            if np.size(velhii) > 0:
+                max_velhii = np.nanmax(velhii) + 1
+                min_velhii = np.nanmin(velhii)
+                max_velgmc = np.nanmax(velgmc) + 1
+                min_velgmc = np.nanmin(velgmc)
+                binresolution = 50
+                bin_hii = np.arange(min_velhii, max_velhii, (max_velhii - min_velhii) / (binresolution))
+                bin_gmc = np.arange(min_velgmc, max_velgmc, (max_velgmc - min_velgmc) / (binresolution))
+                axs[j].hist(velhii, bins=bin_hii, histtype='stepfilled', label='%s' % galaxias[j],
+                            alpha=0.5)
+                axs[j].hist(velgmc, bins=bin_gmc, histtype='stepfilled', label='%s' % galaxias[j], alpha=0.5)
+                axs[j].legend(['HII', 'GMCs'])
+                axs[j].set_title('%s' % galaxias[j])
+                axs[j].grid(alpha=0.3)
+                axs[j].set_xlabel('Velocity (km/s)')
 
     pdf1.savefig(fig)
     plt.show()
@@ -170,7 +172,7 @@ def gmc_hii_vel(new_muse, gmc_catalog, overlap_matching, threshold_perc, outlier
 
     pdf3 = fpdf.PdfPages("%sAll galaxies - Velocity Offset - GMC catalog: %s%s" % (dirplots, typegmc, name_end))
 
-
+    flat_veloffset = np.array(flat_veloffset)
     fig = plt.figure()
     plt.hist(flat_veloffset, bins=np.arange(min, max, (max - min) / binresolution), histtype='stepfilled')
     plt.xlabel('Velocity offset (vel_HII - Vel_GMC) (km/s)')
@@ -185,3 +187,5 @@ def gmc_hii_vel(new_muse, gmc_catalog, overlap_matching, threshold_perc, outlier
     print("std = %f km/s" %np.std(vel_offset_tot))
     print("mean = %f km/s" %np.mean(vel_offset_tot))
     print("median = %f km/s" %np.median(vel_offset_tot))
+
+gmc_hii_vel(new_muse=False, gmc_catalog= "_native_", overlap_matching=True,threshold_perc=0.5,outliers=True)

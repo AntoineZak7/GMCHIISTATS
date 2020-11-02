@@ -189,25 +189,25 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
 
 
     def overlap_percent(rahii, dechii, major_gmc, minor_gmc, angle_gmc, decgmc, ragmc, radiushii, radgmc, header,
-                        threshold_perc):
+                        threshold_perc, gmcs, hiis):
         WC = wcs.WCS(header)
         # =============================================== Checking which GMCs have a HII region associated in terms of distance ===================
         ind_gmc_dist = [] # indexes of gmcs that respect the distance condition
         dists = np.zeros((len(ragmc)),
                          dtype=object)  # initializing array, j : index of gmc, and for each gmc the associated hii regions, so array of not constant shape
-        for j in range(len(ragmc)):
-            distas = ((np.full(fill_value=ragmc[j], shape=len(radiushii)) - rahii) ** 2 + (np.full(fill_value=decgmc[j],
-                                                                                                   shape=len(
-                                                                                                       radiushii)) - dechii) ** 2) ** 0.5  # array of distance between GMC(j) and all the HII regions
+        for j in range(len(ragmc)): # This works as intended, but need to check the coordinates system of hiis and gmcs. Maybe too restrictive
+            distas = np.sqrt((np.square(np.full(fill_value=ragmc[j], shape=len(radiushii)) - rahii)) + np.square((np.full(fill_value=decgmc[j],shape=len(radiushii)) - dechii)))  # array of distance between GMC(j) and all the HII regions
             distas = np.array(distas)
             aradgmc = np.full(fill_value=radgmc[j], shape=len(radiushii))  # array filled with radgmc(j) value
-            dists[j] = np.where(
-                distas <= np.array(radiushii) + aradgmc)  # indexes of where the distance is <= radius hii + radius gmc
-
-            if str(dists[
-                       j]) != '(array([], dtype=int64),)':  # if a gmc has zero hii region where distance is <= radius hii + radius gmc, then its index is not kept
+            dists[j] = np.where(distas <= np.array(radiushii) + aradgmc)[0]  # indexes of where the distance is <= radius hii + radius gmc
+            #print(dists[j])
+            if dists[
+                       j] != []:  # if a gmc has zero hii region where distance is <= radius hii + radius gmc, then its index is not kept
                 ind_gmc_dist.append(j)
         # ========================================================================================================================================
+        ind_gmc_dist = np.array(ind_gmc_dist)
+        #print(ind_gmc_dist)
+        #gmcs = gmcs[ind_gmc_dist] # watch out if indexes match, potential bug
 
         ind_hii = []  # indexes of the hii regions that pass the threshold condition
         ind_gmc = []  # indexes of the gmcs that pass the threshold condition
@@ -324,30 +324,48 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
 
         hii_ind = []  # hii indexes to keep
         gmc_ind = []  # gmc indexes to keep
-
+        #print(np.shape(ind_hii))
+        #print(np.shape(ind_gmc))
         for j in range(len(ind_hii)):
-            if len(np.where(ind_hii[j] == ind_hii)) != 0:  # checking which hii indexes appear more than once
-                #indd = ind_hii[np.where(ind_hii == ind_hii[j])]
-                area_ind = maxarea[np.where(ind_hii == ind_hii[j])] # overlapping areas of the different gmcs associated to the hii region
-                area_max = maxarea[j] # overlapping area of the gmc[j] with its hii region
-                if area_max == np.nanmax(area_ind): # check if the overlapping area is greater than for the others hii regions (first condition)
-                    if len(ind_hii[np.where(maxarea == area_max)]) > 1: # a lot of gmcs are located inside hii regions, so the are in % = 100% and so a condition on the gmc area in pixel (or maybe another) is required
-                        area_ind_gmc = area_gmc_pixel[np.where(ind_hii == ind_hii[j])]
-                        area_j_gmc = area_gmc_pixel[j]
-                        if area_j_gmc == np.nanmax(area_ind_gmc): # from the gmcs with a 100% overlap area, only the largest one is kept. Maybe use a velocity condition instead ? (second condition)
+            if len(np.where(ind_hii == ind_hii[j])[0]) > 1:  # checking which hii indexes appear more than once
+                # indd = ind_hii[np.where(ind_hii == ind_hii[j])]
+                area_ind = maxarea[np.where(ind_hii == ind_hii[j])[0]]  # overlapping areas of the different gmcs associated to the hii region
+                indg = np.array(np.where(ind_hii == ind_hii[j])[0])
+                print(indg)
+
+                area_max = maxarea[j]  # overlapping area of the gmc[j] with its hii region
+                if area_max == np.nanmax(area_ind):  # check if the overlapping area is greater than for the others hii regions (first condition)
+                    if len(ind_hii[np.where(area_ind == area_max)[0]]) > 1:  # a lot of gmcs are located inside hii regions, so the are in % = 100% and so a condition on the gmc area in pixel (or maybe another) is required
+                        deltav_ind_gmc = [gmcvel[j]] * len(ind_hii[np.where(area_ind == area_max)[0]]) - hiivel[ind_hii[np.where(area_ind == area_max)[0]]]
+                        print("len = ")
+                        print(len(ind_hii[np.where(area_ind == area_max)[0]]))
+                        deltav_ind_gmc = np.array(deltav_ind_gmc)
+                        print("deltav_ind_gmc = ")
+                        print(deltav_ind_gmc)
+                        deltav_j_gmc = gmcvel[j] - hiivel[ind_hii[j]]
+                        deltav_j_gmc = np.array(deltav_j_gmc)
+                        print("deltav_j_gmc =")
+                        print(deltav_j_gmc)
+                        if deltav_j_gmc == np.nanmin(deltav_ind_gmc):  # from the gmcs with a 100% overlap area, only the largest one is kept. Maybe use a velocity condition instead ? (second condition)
                             hii_ind.append(int(ind_hii[j]))
                             gmc_ind.append(int(ind_gmc[j]))
-                    else: # if first condition is enough
+                    else:  # if first condition is enough
                         hii_ind.append(int(ind_hii[j]))
                         gmc_ind.append(int(ind_gmc[j]))  # ((ind_gmc[np.where(maxarea_hii == area_max_hii)]))
-            else: # if the hii region is only associated to one gmc
+            else:  # if the hii region is only associated to one gmc
                 hii_ind.append(int(ind_hii[j]))
-                gmc_ind.append((ind_gmc[np.where(ind_hii == ind_hii[j])]))
+                gmc_ind.append((ind_gmc[np.where(ind_hii == ind_hii[j])][0]))
 
         idovergmc = np.array(gmc_ind)
         idoverhii = np.array(hii_ind)
+        print("idovergmc = ")
+        print(idovergmc)
+        print("idoverhii = ")
+        print(idoverhii)
 
         return maxarea, ind_gmc, idovergmc, idoverhii
+
+
 
     def writeds9_vel(galnam, namegmc, rahii, dechii, pind, ragmc, decgmc, dist, comment, dirregions, name_end):
 
@@ -478,6 +496,8 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
     HIImajor = []
     HIIminor = []
     HIIangle = []
+    idoverhii_s = []
+    idovergmc_s = []
 
     DisHIIGMC = []
     SizepcGMC = []
@@ -553,11 +573,15 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
     # Loop in all galaxies. Do histograms and individual galaxy plots.
     print("Starting loop in all galaxies [i], do histograms and individual galaxy plots")
     for i in range(len(hiicats)):
+
         if new_muse == True:
             galnam = str.lower(galaxies_name[i])
             table = table_new_muse
         else:
             galnam = hiicats[i].split("_")[0]
+
+        gmcs = []
+        hiis = []
 
         # print("%s%s%s.fits" % (dirgmc, galnam, namegmc))
         # print(galnam)
@@ -570,6 +594,7 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
 
             if new_muse == False:
                 thii = Table.read(dirhii + hiicats[i])
+
                 # Information of the galaxy
                 PAgal = thii['PA'][0]  # PA of galaxy (deg)
                 inclgal = thii['INCL'][0]  # incl inclination of galaxy (deg)
@@ -634,6 +659,29 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
             print("Reading table")
 
             tgmc = Table.read(("%s%s%s.fits" % (dirgmc, galnam, namegmc1)))
+
+            for i in range(len(tgmc)):
+                gmc = {}
+                for j in tgmc.colnames:
+                    #print(j)
+                    gmc[j] = tgmc[j][i]
+                gmcs.append(gmc)
+
+            for i in range(len(thii)):
+                hii = {}
+                for j in thii.colnames:
+                    #print(j)
+                    hii[j] = thii[j][i]
+                hiis.append(hii)
+
+            hiis = np.array(hiis)
+            gmcs = np.array(gmcs)
+
+
+
+
+
+
 
             s2n = tgmc['S2N']  # signal to noise ratio
             ids2n = (np.where(s2n > 5)[0]).tolist()  # signal to noise condition
@@ -710,11 +758,23 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
                                                       dist_gal_Mpc)
                 maxarea, indarea, idovergmc, idoverhii = overlap_percent(rahii, dechii, major_gmc, minor_gmc, angle_gmc,
                                                                          decgmc, ragmc, radiushii, radgmc_deg, header,
-                                                                         threshold_perc)
+                                                                         threshold_perc, gmcs, hiis)
+
+
+                idovergmc_s.append(idovergmc)
+                idoverhii_s.append(idoverhii)
             else:
                 mindist, inddist, idovergmc, idoverhii = checkdist_2D(rahii, dechii, ragmc, decgmc, sizehii, radgmc,
                                                                       dist_gal_Mpc)
 
+                idovergmc_s.append(idovergmc)
+                idoverhii_s.append(idoverhii)
+
+            if len(idoverhii) == 0:
+                idoverhii = 0
+            if len(idovergmc) == 0:
+                idovergmc = 0
+            print(idoverhii)
             LumHacorr_galo = lhahiicorr[idoverhii]
             # if new_muse == False:
             # GaldisHII_galo = rgalhii[idoverhii]
@@ -1071,3 +1131,12 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
         print(rms)
 
     print(name_end)
+
+    if overperc == True:
+        with open(('overperc%s%s.pickle' % (namegmc, name_end)), "wb") as f:
+            pickle.dump([idoverhii_s, idovergmc_s],f)
+    else:
+        with open(('dist%s%s.pickle' % (namegmc, name_end)), "wb") as f:
+            pickle.dump(
+                [idoverhii_s, idovergmc_s],
+                f)

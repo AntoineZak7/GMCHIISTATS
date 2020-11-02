@@ -3,7 +3,6 @@ import numpy as np
 import math
 import pickle
 
-from argon2._utils import NoneType
 from astropy import constants as ct
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf as fpdf
@@ -24,7 +23,7 @@ from typing import List
 
 
 
-def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, show, save, threshold_perc,  *args, **kwargs):
+def binned_linear_regression(new_muse, gmc_catalog, matching, outliers, show, save, threshold_perc,  *args, **kwargs):
 
     new_muse2 = kwargs.get('new_muse2', None)
     overlap_matching2 = kwargs.get('overlap_matching2', None)
@@ -490,41 +489,40 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
         if save == True:
             pdf4.close()
 
-    def name(overperc, without_out, new_muse, threshold_perc):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
-                       str(threshold_perc)]
+    def name(matching, without_out, new_muse):
+        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc), 'perc_matching_1om']
 
         if new_muse == True:
-            name_end = name_append[3]
-            if overperc == True:
-                name_end = name_end + name_append[0] + name_append[5]
+            name_end = name_append[3] + matching
+            if matching != "distance":
+                name_end = name_end  + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
 
         else:
-            name_end = name_append[4]
-            if overperc == True:
-                name_end = name_end + name_append[0] + name_append[5]
+            name_end = name_append[4] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
         return name_end
 
-
     # ==============================================================================#
     typegmc = gmc_catalog#'_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
-    overperc = overlap_matching
+
     without_out = not outliers
-    name_end = name(overperc, without_out, new_muse, threshold_perc)
+    name_end = name(matching, without_out, new_muse, threshold_perc)
     # ==============================================================================#
 
     overperc1 = overlap_matching2
     without_out1 = not outliers2
     new_muse1 = new_muse2
-    name_end1 = name(overperc1, without_out1, new_muse1, threshold_perc=threshold_perc2)
+    name_end1 = name(matching, without_out1, new_muse1, threshold_perc=threshold_perc2)
     typegmc1 = gmc_catalog2
 
 
@@ -629,7 +627,7 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
         pdf_name = "%sCorrelations_allgals_GMC_binned_out%s%s.pdf" % (dirplots, namegmc, name_end)
         plot_binned_regions(labsxax,labsyay,arrayxax,arrayyay,pdf_name, regions_id)
 
-    if type(region) != NoneType:
+    if type(region) != type(None):
         region = list(region)
         regions_id = region
         print(type(regions_id))
@@ -647,8 +645,8 @@ def binned_linear_regression(new_muse, gmc_catalog, overlap_matching, outliers, 
 
 
 
-binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = True, outliers = True, show = False, save = True, threshold_perc = 0.5, new_muse2= False, overlap_matching2= False, outliers2= True, threshold_perc2 = 0.5, plot_double_lr= True, gmc_catalog2 = "_native_")
-#binned_linear_regression(new_muse = True, gmc_catalog = "_native_", overlap_matching = True, outliers = True, show = True, save = False, threshold_perc = 0.9, plot_lr= True)
+#binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = True, outliers = True, show = True, save =False, threshold_perc = 0.5, new_muse2= False, overlap_matching2= False, outliers2= True, threshold_perc2 = 0.1, plot_double_lr= True, gmc_catalog2 = "_native_")
+binned_linear_regression(new_muse = False, gmc_catalog = "_native_", overlap_matching = False, outliers = True, show = True, save = False, threshold_perc = 0.5, plot_lr= True)
 
 #new_muse2 = kwargs.get('new_muse2', None)
 #overlap_matching2 = kwargs.get('overlap_matching2', None)

@@ -11,37 +11,35 @@ from regions import read_ds9
 from matplotlib import cm
 from matplotlib import colors
 
-def Vel_overlays(new_muse, gmc_catalog, overlap_matching, threshold_perc, outliers):
-
-    def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
+def Vel_overlays(new_muse, gmc_catalog, matching, threshold_perc, outliers):
+    def name(matching, without_out, new_muse):
+        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc), 'perc_matching_1om']
 
         if new_muse == True:
-            name_end = name_append[3]
-            if overperc == True:
-                name_end = name_end + name_append[0] +name_append[5]
+            name_end = name_append[3] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
 
         else:
-            name_end = name_append[4]
-            if overperc == True:
-                name_end = name_end + name_append[0] + name_append[5]
+            name_end = name_append[4] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
         return name_end
 
-
     # ==============================================================================#
     typegmc = gmc_catalog  # '_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
-    overperc = overlap_matching  # True
     without_out = not outliers
 
-    name_end = name(overperc, without_out, new_muse)
+    name_end = name(matching, without_out, new_muse)
     namegmc = "_12m+7m+tp_co21%sprops" % typegmc
 
     dirhii, dirgmc, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots = pickle.load(

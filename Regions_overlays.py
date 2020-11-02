@@ -15,7 +15,7 @@ from spectral_cube import Projection
 import warnings
 warnings. filterwarnings("ignore")
 
-def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, threshold_perc, *args, **kwargs):
+def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_perc, *args, **kwargs):
 
     paired = kwargs.get('paired', None)
     unpaired = kwargs.get('unpaired', None)
@@ -30,22 +30,23 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, thre
         else:
             plt.close()
 
-    def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
+    def name(matching, without_out, new_muse):
+        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc), 'perc_matching_1om']
 
         if new_muse == True:
-            name_end = name_append[3]
-            if overperc == True:
-                name_end = name_end + name_append[0] +name_append[5]
+            name_end = name_append[3] + matching
+            if matching != "distance":
+                name_end = name_end  + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
 
         else:
-            name_end = name_append[4]
-            if overperc == True:
-                name_end = name_end + name_append[0] + name_append[5]
+            name_end = name_append[4] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
@@ -199,10 +200,9 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, thre
     typegmc = gmc_catalog#'_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
     # ==============================================================================#
 
-    overperc = overlap_matching  # True
     without_out = not outliers
 
-    name_end = name(overperc, without_out, new_muse)
+    name_end = name(matching, without_out, new_muse)
     namegmc = "_12m+7m+tp_co21%sprops" % typegmc
 
     dirhii, dirgmc, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots = pickle.load(
@@ -299,4 +299,4 @@ def overlays(new_muse, gmc_catalog, overlap_matching, outliers, show, save, thre
     if paired_and_unpaired() == True or all == True:
         pdf3.close()
 
-#overlays(new_muse = False, gmc_catalog = "_120pc_match_", overlap_matching = False, outliers = True,show = True, save = False, threshold_perc = 0.4,  paired = True)
+#overlays(new_muse = False, gmc_catalog = "_native_", overlap_matching = True, outliers = True,show = True, save = False, threshold_perc = 0.5,  paired = True, unpaired = True)
