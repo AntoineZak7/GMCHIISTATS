@@ -12,42 +12,93 @@ import matplotlib.backends.backend_pdf as fpdf
 from sklearn.linear_model import LinearRegression
 import seaborn as sns
 from astropy.coordinates import FK5
-from regions import EllipseSkyRegion, CircleSkyRegion
+from regions import EllipseSkyRegion, CircleSkyRegion, EllipsePixelRegion, PixCoord
 from astropy import wcs
 from astropy.io import fits
 from itertools import chain
 
-
 np.set_printoptions(threshold=sys.maxsize)
 sns.set(style="white", color_codes=True)
 c = 299792.458
+
+
 # ===================================================================================
 
-def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_perc):
+def extract_info(gmc_catalog, new_muse, matching, outliers, threshold_perc):
+    def undo_list(list1):
+        if isinstance(list1, list) and list1 != [] :
+            list1 = list1[0]
+        return list1
 
-    def name(overperc, without_out, new_muse):
-        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
+    def make_list(a):
+        if not isinstance(a, list):
+            a = [a]
+        return a
+
+    def extract_ind(list1, value):
+        ind_val = [[idx, item] for [idx, item] in enumerate(list1) if item == value]
+        indexes = [item[0] for item in ind_val]
+        return indexes
+
+    def extract_ind_not_equal(list1, value):
+        ind_val = [[idx, item] for [idx, item] in enumerate(list1) if item != value]
+        indexes = [item[0] for item in ind_val]
+        return indexes
+
+    def extract_values(list1, indexes):
+        values = [list1[i] for i in indexes]
+        return values
+
+    def make_hii_list_ind(hiis_matched, gmc):
+        hii_list_ind = []
+        for item in hiis:
+            if (gmc in make_list(item["GMCS"]) and (item["PHANGS_INDEX"] - 1 not in hiis_matched)):
+                hii_list_ind.append((item["PHANGS_INDEX"] - 1))
+        return hii_list_ind
+        # [(item['CLOUDNUM'] - 1) for item in hiis if (gmc in item["GMCS"] and (item["CLOUDNUM"] - 1 not in hiis_matched))]
+
+    def make_hii_list(hiis_matched, gmc):
+        hii_list = []
+        for item in hiis:
+            if (gmc in make_list(item["GMCS"]) and (item["PHANGS_INDEX"] - 1 not in hiis_matched)):
+                hii_list.append(item)
+        return hii_list
+
+    def do_list(list1, gmc, key):
+        done_list = []
+        for hii in list1:
+            sublist = hii[key]
+            sublist_ind = hii["GMCS"]
+            indexes = extract_ind(sublist_ind, gmc)
+            value_list = extract_values(sublist, indexes)
+            done_list.append(value_list)
+        return done_list
+
+    def name(matching, without_out, new_muse):
+        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc), 'perc_matching_1om']
 
         if new_muse == True:
-            name_end = name_append[3]
-            if overperc == True:
-                name_end = name_end + name_append[0] +name_append[5]
+            name_end = name_append[3] + matching
+            if matching != "distance":
+                name_end = name_end  + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
 
         else:
-            name_end = name_append[4]
-            if overperc == True:
-                name_end = name_end + name_append[0] + name_append[5]
+            name_end = name_append[4] + matching
+            if matching != "distance":
+                name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
                 else:
                     name_end = name_end + name_append[1]
         return name_end
 
-    def vgsr_to_vhel(ra, dec, vgsr):  # This is a copy paste of a gala v0.1.0 routine https://gala-astro.readthedocs.io/en/v0.1.0/_modules/gala/coordinates/core.html#vhel_to_vgsr
+    def vgsr_to_vhel(ra, dec,
+                     vgsr):  # This is a copy paste of a gala v0.1.0 routine https://gala-astro.readthedocs.io/en/v0.1.0/_modules/gala/coordinates/core.html#vhel_to_vgsr
         """
         Convert a radial velocity in the Galactic standard of rest (GSR) to
         a barycentric radial velocity.
@@ -181,39 +232,182 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
         idoverhii = [idhii[item] for item in overid]
         return mindist, inddist, idovergmc, idoverhii
 
-    def findist(rahii, dechii, ragmc, decgmc,  distance):
-        distas = np.array(((ragmc[idovergmc] - rahii[idoverhii]) ** 2 + (decgmc[idovergmc] - dechii[idoverhii]) ** 2) ** 0.5)  # array of distance between GMC(j) and all the HII regions
+    def findist(rahii, dechii, ragmc, decgmc, distance):
+        distas = np.array(((ragmc[idovergmc] - rahii[idoverhii]) ** 2 + (decgmc[idovergmc] - dechii[
+            idoverhii]) ** 2) ** 0.5)  # array of distance between GMC(j) and all the HII regions
         distas = np.array(distas) * distance[0]
         print(distas)
-        return distas          # indexes of where the distance is <= radius hii + radius gmc
+        return distas  # indexes of where the distance is <= radius hii + radius gmc
 
+    def matching1o1(gmcs, hiis):
+        hiis_matched = []
+        print([item["GMCS"] for item in hiis])
+        print("\n")
+
+        for j in range(len(gmcs) - 1):
+
+            gmc = j + 1
+
+            hii_list_ind = make_hii_list_ind(hiis_matched,
+                                             gmc)  # [(item['CLOUDNUM'] - 1) for item in hiis if (gmc in item["GMCS"]  and (item["CLOUDNUM"] -1 not in hiis_matched))]
+            hii_list = make_hii_list(hiis_matched, gmc)  # [item for item in hiis if gmc in item["GMCS"]]
+
+            if np.size(hii_list) > 1:
+
+                # hii_gmc_overlap = [   np.array(sublist["OVERLAP_PIX"])[np.where(np.array(sublist["GMCS"]) == gmc)[0]] for sublist in hii_list   ]
+                hii_gmc_overlap = do_list(hii_list, gmc, "OVERLAP_PIX")
+
+                # hii_gmc_vel = [   np.array(sublist["DELTAV"])[np.where(np.array(sublist["GMCS"]) == gmc)[0]] for sublist in hii_list]
+                hii_gmc_vel = do_list(hii_list, gmc, "DELTAV")
+
+                best_gmcs_inds = np.nanargmax(hii_gmc_overlap)
+
+                if np.size(best_gmcs_inds) > 1:
+                    best_gmc_ind = np.nanargmin(hii_gmc_vel[best_gmcs_inds])
+                    best_hii_ind = hii_list_ind[best_gmcs_inds[best_gmc_ind]]
+                    best_hii = hii_list[best_gmcs_inds[best_gmc_ind]]
+                    # remove gmcs in best and in others
+                    hiis[best_hii_ind]["GMCS"] = gmc
+                    hiis_matched.append(best_hii)
+                    for hii in hiis:
+                        if hii["PHANGS_INDEX"] - 1 != best_hii_ind and hii["GMCS"] != []:
+                            make_list(hii["GMCS"])
+                            make_list(hii["OVERLAP_PIX"])
+                            make_list(hii["DELTAV"])
+                            # hii["GMCS"] = [item for item in hii["GMCS"] if item != gmc]
+                            ind_gmc = extract_ind_not_equal(hii["GMCS"],
+                                                            gmc)  # np.where(np.array(hii["GMCS"] != gmc))[0]
+
+                            hii["OVERLAP_PIX"] = extract_values(hii["OVERLAP_PIX"],
+                                                                ind_gmc)  # np.array(hii["OVERLAP_PIX"])[ind_gmc]
+                            hii["DELTAV"] = extract_values(hii["DELTAV"], ind_gmc)  # np.array(hii["DELTAV"])[ind_gmc]
+                            hii["GMCS"] = extract_values(hii["GMCS"], ind_gmc)  # np.array(hii["GMCS"])[ind_gmc]
+
+                        else:
+                            make_list(hii["GMCS"])
+                            make_list(hii["OVERLAP_PIX"])
+                            make_list(hii["DELTAV"])
+                            ind_gmc = extract_ind(hii["GMCS"], gmc)  # np.where(np.array(hii["GMCS"] != gmc))[0]
+                            hii["OVERLAP_PIX"] = extract_values(hii["OVERLAP_PIX"],
+                                                                ind_gmc)  # np.array(hii["OVERLAP_PIX"])[ind_gmc]
+                            hii["DELTAV"] = extract_values(hii["DELTAV"], ind_gmc)  # np.array(hii["DELTAV"])[ind_gmc]
+                            hii["GMCS"] = extract_values(hii["GMCS"], ind_gmc)  # np.array(hii["GMCS"])[ind_gmc]
+
+
+
+
+
+                else:
+                    best_hii_ind = hii_list_ind[best_gmcs_inds]
+                    best_hii = hii_list[best_gmcs_inds]
+                    hiis_matched.append(best_hii)
+
+                    # remove gmcs in best and in others
+                    # list1 = [[idx, item] for [idx, item] in enumerate(hii) if item != gmc]
+                    # print(list1)
+
+                    hiis[best_hii_ind]["GMCS"] = gmc
+                    for hii in hiis:
+                        if hii["PHANGS_INDEX"] - 1 != best_hii_ind and hii["GMCS"] != []:
+                            hii["GMCS"] = make_list(hii["GMCS"])
+                            hii["OVERLAP_PIX"] = make_list(hii["OVERLAP_PIX"])
+                            hii["DELTAV"] = make_list(hii["DELTAV"])
+                            # hii["GMCS"] = [item for item in hii["GMCS"] if item != gmc]
+                            ind_gmc = extract_ind_not_equal(hii["GMCS"],
+                                                            gmc)  # np.where(np.array(hii["GMCS"] != gmc))[0]
+                            hii["OVERLAP_PIX"] = extract_values(hii["OVERLAP_PIX"],
+                                                                ind_gmc)  # np.array(hii["OVERLAP_PIX"])[ind_gmc]
+                            hii["DELTAV"] = extract_values(hii["DELTAV"], ind_gmc)  # np.array(hii["DELTAV"])[ind_gmc]
+                            hii["GMCS"] = extract_values(hii["GMCS"], ind_gmc)  # np.array(hii["GMCS"])[ind_gmc]
+                        else:
+
+                            hii["GMCS"] = make_list(hii["GMCS"])
+                            hii["OVERLAP_PIX"] = make_list(hii["OVERLAP_PIX"])
+                            hii["DELTAV"] = make_list(hii["DELTAV"])
+                            ind_gmc = extract_ind(hii["GMCS"], gmc)  # np.where(np.array(hii["GMCS"] != gmc))[0]
+                            hii["OVERLAP_PIX"] = extract_values(hii["OVERLAP_PIX"],
+                                                                ind_gmc)  # np.array(hii["OVERLAP_PIX"])[ind_gmc]
+                            hii["DELTAV"] = extract_values(hii["DELTAV"], ind_gmc)  # np.array(hii["DELTAV"])[ind_gmc]
+                            hii["GMCS"] = extract_values(hii["GMCS"], ind_gmc)  # np.array(hii["GMCS"])[ind_gmc]
+
+            else:
+                best_hii = hii_list_ind
+                if best_hii:
+                    hiis_matched.append(best_hii)
+
+                    hiis[best_hii[0]]["GMCS"] = gmc
+
+        print("EMPTY NOT REMOVED")
+        print([item["GMCS"] for item in hiis])
+        print(len(hiis))
+        print("\n")
+
+        hiis = [item for item in hiis if item["GMCS"] != []]
+
+        print("EMPTY REMOVED")
+        print([item["GMCS"] for item in hiis])
+        print(len(hiis))
+        print("\n")
+
+        print(np.shape([item["GMCS"] for item in hiis]))
+        idoverhii = [hii.get("PHANGS_INDEX") - 1 for hii in hiis]
+        idovergmc = [undo_list(undo_list(hii.get("GMCS"))) - 1 for hii in hiis]
+        print(idovergmc)
+        print(len(idovergmc))
+        print(idoverhii)
+        print(len(idoverhii))
+
+        return idoverhii, idovergmc
+
+    def matching1om(hiis, gmcs):
+        hiis_matched = []
+
+        for hii in hiis:
+            if hii['GMCS'] != []:
+                max_overlap_ind = np.argmax(hii["OVERLAP_PIX"])
+                vel_list = hii["DELTAV"]
+                if np.size(max_overlap_ind) > 1:
+                    min_vel_ind = np.argmin([vel_list[i] for i in max_overlap_ind])
+                    hii['GMCS'] = hii['GMCS'][max_overlap_ind][min_vel_ind]
+                    hiis_matched.append(hii)
+                else:
+                    hii['GMCS'] = hii['GMCS'][max_overlap_ind]
+                    hiis_matched.append(hii)
+
+        print(hiis)
+
+        hiis = [item for item in hiis if item["GMCS"] != []]
+
+        idovergmc = [hii.get("PHANGS_INDEX") - 1 for hii in hiis]
+        idoverhii = [undo_list(hii.get("GMCS")) - 1 for hii in hiis]
+        return idoverhii, idovergmc
 
     def overlap_percent(rahii, dechii, major_gmc, minor_gmc, angle_gmc, decgmc, ragmc, radiushii, radgmc, header,
-                        threshold_perc, gmcs, hiis):
+                        threshold_perc, gmcs, hiis, matching_1o1, matching_1om):
         WC = wcs.WCS(header)
         # =============================================== Checking which GMCs have a HII region associated in terms of distance ===================
-        ind_gmc_dist = [] # indexes of gmcs that respect the distance condition
-        dists = np.zeros((len(ragmc)),
-                         dtype=object)  # initializing array, j : index of gmc, and for each gmc the associated hii regions, so array of not constant shape
-        for j in range(len(ragmc)): # This works as intended, but need to check the coordinates system of hiis and gmcs. Maybe too restrictive
-            distas = np.sqrt((np.square(np.full(fill_value=ragmc[j], shape=len(radiushii)) - rahii)) + np.square((np.full(fill_value=decgmc[j],shape=len(radiushii)) - dechii)))  # array of distance between GMC(j) and all the HII regions
-            distas = np.array(distas)
-            aradgmc = np.full(fill_value=radgmc[j], shape=len(radiushii))  # array filled with radgmc(j) value
-            dists[j] = np.where(distas <= np.array(radiushii) + aradgmc)[0]  # indexes of where the distance is <= radius hii + radius gmc
-            #print(dists[j])
-            if dists[
-                       j] != []:  # if a gmc has zero hii region where distance is <= radius hii + radius gmc, then its index is not kept
-                ind_gmc_dist.append(j)
-        # ========================================================================================================================================
-        ind_gmc_dist = np.array(ind_gmc_dist)
-        #print(ind_gmc_dist)
-        #gmcs = gmcs[ind_gmc_dist] # watch out if indexes match, potential bug
+        ind_hii_dist = []  # indexes of hiis that potentially have gmcs
+        arr_hii_dist = []
+        dists = np.zeros((len(hiis)),
+                         dtype=object)  # initializing array, j : index of hii region, and for each gmc the associated hii regions, so array of not constant shape
 
-        ind_hii = []  # indexes of the hii regions that pass the threshold condition
-        ind_gmc = []  # indexes of the gmcs that pass the threshold condition
-        maxarea = []  # maximum overlapping area for the gmc in %
-        maxarea_hii = []  # maximum overlapping area for the hii region in %
-        area_gmc_pixel = [] # area of the gmc in pixels
+        size_loop = len(hiis)
+        for j in range(size_loop):  # This works as intended, but need to check the coordinates system of hiis and gmcs. Maybe too restrictive
+            distas = np.sqrt((np.square(np.full(fill_value=rahii[j], shape=len(ragmc)) - ragmc)) + np.square((np.full(fill_value=dechii[j],shape=len(ragmc)) - decgmc)))  # array of distance between GMC(j) and all the HII regions
+            dist = ((rahii[j] - ragmc)**2 + (dechii[j] - decgmc)**2)**0.5
+            #print(dist-distas)
+            aradhii = np.full(fill_value=radiushii[j], shape=len(ragmc))  # array filled with radgmc(j) value
+            deltadist = (distas - np.array(major_gmc) - 8*aradhii)
+
+            dists[j] = np.where(deltadist <= 0)[0]  # indexes of where the distance is <= radius hii + radius gmc
+            if dists[j] != []:  # if a gmc has zero hii region where distance is <= radius hii + radius gmc, then its index is not kept
+                ind_hii_dist.append(j)
+                arr_hii_dist.append(dists[j])
+
+        # ========================================================================================================================================
+        ind_hii_dist = np.array(ind_hii_dist)
+
+
 
 
         name = "_ha.fits"  # "_Hasub_flux.fits"
@@ -222,150 +416,153 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
         fig = plt.figure()
         fig.add_subplot(111, projection=WC)
         plt.imshow(image_data, vmax=6000, cmap='Greys')
-
-        for j in ind_gmc_dist:  # range(len(ragmc)):  # for the gmc regions that passed the precedent condition, "local" masks are calculated from astropy regions using table angles, radius etc...
-
-            center_gmc = SkyCoord(ragmc[j] * u.deg, decgmc[j] * u.deg, frame=FK5, unit='deg')
-            ellipse_gmc = EllipseSkyRegion(center=center_gmc, height=major_gmc[j] * u.deg, width=minor_gmc[j] * u.deg,
-                                           angle=angle_gmc[j] * u.deg)
-            ellipse_pixel_gmc = ellipse_gmc.to_pixel(wcs=WC)
-
-            gxmin = ellipse_pixel_gmc.bounding_box.ixmin  # getting bounding box limits to transform "local mask" to "galaxy size" masks later
-            gxmax = ellipse_pixel_gmc.bounding_box.ixmax
-            gymin = ellipse_pixel_gmc.bounding_box.iymin
-            gymax = ellipse_pixel_gmc.bounding_box.iymax
-
-            print('%s/%s' % (j, len(ragmc)))  # just to check the loop
-
-            ind = []  # indexes of hii regions associated to the GMC of index j
-            for k in dists[
-                j]:  # dist[j] is an array of no constant shape (dtype object), so cannot be manipulated with numpy but as a string. An ind list is filled with its values
-                l = 0
-                for i in str(k).replace('[', '').replace(']', '').split()[:]:
-                    # print(str(k).replace('[','').replace(']','').split()[l])
-                    ind.append(int(str(k).replace('[', '').replace(']', '').split()[l]))
-                    l += 1
-
-            intersec = []  # size in pixels of the overlapping region between gmcs and hii regions
-            intersec_area_gmc = [] # size in pixels of the gmc
-            intersec_id = []  # id of the gmc region overlapping
-            intersec_hii = []  # id of the hii region overlapping
+        hiis_loop = [hiis[i] for i in ind_hii_dist]
+        j = 0
+        print(len(hiis))
+        print(len(gmcs))
+        print([gmc["CLOUDNUM"] for gmc in gmcs])
 
 
-            for i in ind:
-                center_hii = SkyCoord(rahii[i] * u.deg, dechii[i] * u.deg, frame=FK5, unit='deg')
 
-                circle_hii = CircleSkyRegion(center=center_hii, radius=radiushii[i] * u.deg)
+        for hii in hiis:#hiis_loop:  # range(len(ragmc)):  # for the gmc regions that passed the precedent condition, "local" masks are calculated from astropy regions using table angles, radius etc...
+            hii["GMCS"] = []
+            hii["OVERLAP_PIX"] = []
+            hii["DELTAV"] = []
+
+            if hii in hiis_loop:
+                #plt.imshow(image_data, vmax=6000, cmap='Greys')
+
+                # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                print("%i/%i" % (undo_list(hii["PHANGS_INDEX"]), len(hiis)))
+
+
+                rahii = hii['RA']  # Right ascension of the region in degrees
+                dechii = hii['DEC']  # declinaison of the region in degrees
+                #hiivel = hii['HA_VEL'] + 1.4
+                radiushii = hii['SIZE_OBS'] / 3600
+
+                center_hii = SkyCoord(rahii * u.deg, dechii * u.deg, frame=FK5, unit='deg')
+
+                circle_hii = CircleSkyRegion(center=center_hii, radius=radiushii * u.deg)
                 circle_pixel_hii = circle_hii.to_pixel(wcs=WC)
+                #circle_pixel_hii.plot(color = "blue")
 
                 hxmin = circle_pixel_hii.bounding_box.ixmin  # getting bounding box limits to transform "local mask" to "galaxy size" masks but for the hii region this time
                 hxmax = circle_pixel_hii.bounding_box.ixmax
                 hymin = circle_pixel_hii.bounding_box.iymin
                 hymax = circle_pixel_hii.bounding_box.iymax
+                # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                # gmcs1 = [gmcs[i] for i in ind]
+                gmcs_loop = [gmcs[i] for i in arr_hii_dist[j] if
+                             (gmcs[i]['MOMMAJ_PC'] != 0 and gmcs[i]["MOMMIN_PC"] != 0)]
+                j += 1
 
-                gmc_area = 0  # initializing the areas at 0 in case no overlap  is found
-                hii_area = 0
-                mask_gmc = ellipse_pixel_gmc.to_mask().data
-                mask_hii = circle_pixel_hii.to_mask().data
+                for gmc in gmcs:  # gmcs_loop:#gmcs1:
+                    gmc["HIIS"] = []
+                    gmc["OVERLAP_PIX"] = []
+                    gmc["DELTAV"] = []
+                    if gmc in gmcs_loop:
 
-                ax1 = header['NAXIS1'] +100 # getting the sizes of the galaxy image where the regions are projected
-                ax2 = header['NAXIS2']+100
-                mask_hii_all = np.zeros(shape=(ax2, ax1))  # initializing "galaxy size" masks
-                mask_gmc_all = np.zeros(shape=(ax2, ax1))
+                        # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-                for l in range(gymax - gymin):  # transforming "local masks" to galaxy size masks (gmc)
-                    for c in range(gxmax - gxmin):
-                        mask_gmc_all[l + gymin][c + gxmin] = mask_gmc[l][c]
 
-                for l in range(hymax - hymin):  # transforming "local masks" to galaxy size masks (hii region)
-                    for c in range(hxmax - hxmin):
-                        mask_hii_all[l + hymin][c + hxmin] = mask_hii[l][c]
+                        ragmc = gmc['XCTR_DEG']
+                        decgmc = gmc['YCTR_DEG']
+                        major_gmc = np.degrees(gmc['MOMMAJ_PC'] / gmc['DISTANCE_PC'])
 
-                for l in range(
-                        gymax - gymin):  # calculating gmc area in pixels (probably more straightforward way to do it ?)
-                    for c in range(gxmax - gxmin):
-                        if mask_gmc[l][c] == 1:
-                            gmc_area += 1
+                        minor_gmc = np.degrees(gmc['MOMMIN_PC'] / gmc['DISTANCE_PC'])
 
-                for l in range(
-                        hymax - hymin):  # calculating hii region area in pixels (probably more straightforward way to do it )
-                    for c in range(hxmax - hxmin):
-                        if mask_hii[l][c] == 1:
-                            hii_area += 1
+                        angle_gmc = 90 - np.degrees(gmc['POSANG'])
+                        #radgmc = gmc['RAD_PC']
+                        center_gmc = SkyCoord(ragmc * u.deg, decgmc * u.deg, frame=FK5, unit='deg')
+                        ellipse_gmc = EllipseSkyRegion(center=center_gmc, height=major_gmc * u.deg,
+                                                       width=minor_gmc * u.deg,
+                                                       angle=angle_gmc * u.deg)
+                        ellipse_pixel_gmc = ellipse_gmc.to_pixel(wcs=WC)
 
-                count1 = sum([list(i).count(2) for i in (
-                            mask_gmc_all + mask_hii_all)])  # adding the global hii mask to the global gmc masks and counting the number of values = 2, i.e overlapping area = (number of pixels which values are 2)
+                        #ellipse_pixel_gmc.plot(color = "red")
+                        #                  print(ellipse_pixel_gmc.to_mask())
+                        #                 plt.show()
 
-                if count1 != 0:
-                    count = count1 / gmc_area  # overlapping area in terms of percentage of the gmc
-                    count_hii = count1 / hii_area  # overlapping area in terms of percentage of the hii region
+                        gxmin = ellipse_pixel_gmc.bounding_box.ixmin  # getting bounding box limits to transform "local mask" to "galaxy size" masks later
+                        gxmax = ellipse_pixel_gmc.bounding_box.ixmax
+                        gymin = ellipse_pixel_gmc.bounding_box.iymin
+                        gymax = ellipse_pixel_gmc.bounding_box.iymax
 
-                    if count >= threshold_perc:
-                        intersec.append(
-                            count)  # add the overlapping percentage of each hii region that overlap with the gmc of index j
-                        intersec_id.append(i)
-                        intersec_hii.append(count_hii)
-                        intersec_area_gmc.append(count1)
+                        # print('%s/%s' % (undo_list(gmc["CLOUDNUM"]), len(gmcs)))  # just to check the loop
 
-            if intersec != []:  # keeping only one hii region, the one with the most overlapping area
-                maxarea.append(np.nanmax(intersec))
-                ind_hii.append(int(
-                    intersec_id[np.nanargmax(intersec)]))  # keeping only the hii region with the most common surface
-                maxarea_hii.append(intersec_hii[np.nanargmax(intersec)])
-                ind_gmc.append(j)
-                area_gmc_pixel.append(intersec_area_gmc[np.nanargmax(intersec)])
+                        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        # plt.show()
-        ind_hii = np.array(ind_hii)
-        ind_gmc = np.array(ind_gmc)
-        maxarea_hii = np.array(maxarea_hii)
-        maxarea = np.array(maxarea)
-        area_gmc_pixel = np.array(area_gmc_pixel)
+                        gmc_area = 0  # initializing the areas at 0 in case no overlap  is found
+                        hii_area = 0
+                        mask_gmc = ellipse_pixel_gmc.to_mask().data
+                        mask_hii = circle_pixel_hii.to_mask().data
 
-        hii_ind = []  # hii indexes to keep
-        gmc_ind = []  # gmc indexes to keep
-        #print(np.shape(ind_hii))
-        #print(np.shape(ind_gmc))
-        for j in range(len(ind_hii)):
-            if len(np.where(ind_hii == ind_hii[j])[0]) > 1:  # checking which hii indexes appear more than once
-                # indd = ind_hii[np.where(ind_hii == ind_hii[j])]
-                area_ind = maxarea[np.where(ind_hii == ind_hii[j])[0]]  # overlapping areas of the different gmcs associated to the hii region
-                indg = np.array(np.where(ind_hii == ind_hii[j])[0])
-                print(indg)
+                        ax1 = header['NAXIS1'] + 200  # getting the sizes of the galaxy image where the regions are projected
+                        ax2 = header['NAXIS2'] + 200
+                        mask_hii_all = np.zeros(shape=(ax2, ax1))  # initializing "galaxy size" masks
+                        mask_gmc_all = np.zeros(shape=(ax2, ax1))
 
-                area_max = maxarea[j]  # overlapping area of the gmc[j] with its hii region
-                if area_max == np.nanmax(area_ind):  # check if the overlapping area is greater than for the others hii regions (first condition)
-                    if len(ind_hii[np.where(area_ind == area_max)[0]]) > 1:  # a lot of gmcs are located inside hii regions, so the are in % = 100% and so a condition on the gmc area in pixel (or maybe another) is required
-                        deltav_ind_gmc = [gmcvel[j]] * len(ind_hii[np.where(area_ind == area_max)[0]]) - hiivel[ind_hii[np.where(area_ind == area_max)[0]]]
-                        print("len = ")
-                        print(len(ind_hii[np.where(area_ind == area_max)[0]]))
-                        deltav_ind_gmc = np.array(deltav_ind_gmc)
-                        print("deltav_ind_gmc = ")
-                        print(deltav_ind_gmc)
-                        deltav_j_gmc = gmcvel[j] - hiivel[ind_hii[j]]
-                        deltav_j_gmc = np.array(deltav_j_gmc)
-                        print("deltav_j_gmc =")
-                        print(deltav_j_gmc)
-                        if deltav_j_gmc == np.nanmin(deltav_ind_gmc):  # from the gmcs with a 100% overlap area, only the largest one is kept. Maybe use a velocity condition instead ? (second condition)
-                            hii_ind.append(int(ind_hii[j]))
-                            gmc_ind.append(int(ind_gmc[j]))
-                    else:  # if first condition is enough
-                        hii_ind.append(int(ind_hii[j]))
-                        gmc_ind.append(int(ind_gmc[j]))  # ((ind_gmc[np.where(maxarea_hii == area_max_hii)]))
-            else:  # if the hii region is only associated to one gmc
-                hii_ind.append(int(ind_hii[j]))
-                gmc_ind.append((ind_gmc[np.where(ind_hii == ind_hii[j])][0]))
+                        for l in range(gymax - gymin):  # transforming "local masks" to galaxy size masks (gmc)
+                            for c in range(gxmax - gxmin):
+                                mask_gmc_all[l + gymin][c + gxmin] = mask_gmc[l][c]
 
-        idovergmc = np.array(gmc_ind)
-        idoverhii = np.array(hii_ind)
-        print("idovergmc = ")
-        print(idovergmc)
-        print("idoverhii = ")
-        print(idoverhii)
+                        for l in range(hymax - hymin):  # transforming "local masks" to galaxy size masks (hii region)
+                            for c in range(hxmax - hxmin):
+                                mask_hii_all[l + hymin][c + hxmin] = mask_hii[l][c]
+
+                        for l in range(
+                                gymax - gymin):  # calculating gmc area in pixels (probably more straightforward way to do it ?)
+                            for c in range(gxmax - gxmin):
+                                if mask_gmc[l][c] == 1:
+                                    gmc_area += 1
+
+                        for l in range(
+                                hymax - hymin):  # calculating hii region area in pixels (probably more straightforward way to do it )
+                            for c in range(hxmax - hxmin):
+                                if mask_hii[l][c] == 1:
+                                    hii_area += 1
+
+                        count1 = sum([list(i).count(2) for i in (
+                                mask_gmc_all + mask_hii_all)])  # adding the global hii mask to the global gmc masks and counting the number of values = 2, i.e overlapping area = (number of pixels which values are 2)
+
+
+
+                        #print(gmc_area)
+                        #print(hii_area)
+                        #print(mask_gmc)
+                        #print(mask_hii)
+
+                        if gmc_area !=0 and hii_area != 0:
+                            count1 = count1 / gmc_area
+                            count2 = count1 / hii_area
+
+                            if count1 >= threshold_perc and gmc["S2N"] > 5:
+                                gmc["HIIS"].append(hii['PHANGS_INDEX'])
+                                gmc["OVERLAP_PIX"].append(count1)
+                                hii["GMCS"].append(gmc['CLOUDNUM'])
+                                hii["OVERLAP_PIX"].append(count2)
+                                hiivel = (hii['HA_VEL'] + 1.4)  # Veclocity (km/s)
+                                gmcvel = gmc['VCTR_KMS']
+                                gmcvel = vgsr_to_vhel(vgsr=gmcvel, ra=ragmc, dec=decgmc)
+                                gmcvel = gmcvel / (1 - gmcvel / c)
+                                deltav = gmcvel - hiivel
+                                gmc["DELTAV"].append(deltav)
+                                hii["DELTAV"].append(deltav)
+            #plt.show()
+
+
+
+
+
+        if matching_1o1 == True:
+            idoverhii, idovergmc = matching1o1(gmcs, hiis)
+        if matching_1om == True:
+            idoverhii,idovergmc = matching1om(hiis, gmcs)
+        maxarea = 1
+        ind_gmc = 1
 
         return maxarea, ind_gmc, idovergmc, idoverhii
-
-
 
     def writeds9_vel(galnam, namegmc, rahii, dechii, pind, ragmc, decgmc, dist, comment, dirregions, name_end):
 
@@ -424,29 +621,41 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
         nonan = var1[~np.isnan(var1)]
         return nonan
 
-
     # ===================================================================================
-    typegmc = gmc_catalog#'_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
-    overperc = overlap_matching
+    typegmc = gmc_catalog  # '_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
+    if not (matching == "distance" or matching == "overlap_1o1" or matching == "overlap_1om"):
+        sys.exit("WRONG MATCHING INPUT")
+
+    if matching == "overlap_1o1":
+        matching_1o1 = True
+        matching_1om = False
+        matching_dist = False
+    if matching == "overlap_1om":
+        matching_1om = True
+        matching_1o1 = False
+        matching_dist = False
+    if matching == "distance":
+        matching_1om = False
+        matching_1o1 = False
+        matching_dist = True
     without_out = not outliers
-    name_end = name(overperc, without_out, new_muse)
+    name_end = name(matching, without_out, new_muse)
     # ---------------------------------------------
 
     # Defining paths to the files and files names !!! TO CHANGE !!!
- #======================================================================================================================================================================"
+    # ======================================================================================================================================================================"
     dirhii = "/home/antoine/Internship/muse_hii/"  # old muse tables directory
     dirhii_new = "/home/antoine/Internship/muse_hii_new/"  # new muse tables directory
     dirgmc = '/home/antoine/Internship/gmccats_st1p5_amended/'  # gmc tables directory
 
     dirregions1 = "/home/antoine/Internship/ds9tables/Muse/Old_Muse/"  # Must create a directory to save the region ds9 files before running the code for the first time
-    dirregions2 = "/home/antoine/Internship/ds9tables/Muse/New_Muse/" # same but for new muse catalog
+    dirregions2 = "/home/antoine/Internship/ds9tables/Muse/New_Muse/"  # same but for new muse catalog
 
     dirmaps = "/home/antoine/Internship/Galaxies/New_Muse/"  # maps directory (to plot the overlays)
 
     dirplots1 = "/home/antoine/Internship/Plots_Muse/Old_Muse/"  # directories to save the plots (old muse catalog)
-    dirplots2 = "/home/antoine/Internship/Plots_Muse/New_Muse/" # directories to save the plots (new muse catalog)
-#========================================================================================================================================================================="
-
+    dirplots2 = "/home/antoine/Internship/Plots_Muse/New_Muse/"  # directories to save the plots (new muse catalog)
+    # ========================================================================================================================================================================="
 
     # ---defining which directory to store the plots in----#
     if new_muse == False:
@@ -469,7 +678,7 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
         print(typegmc1)
         namegmc = "_12m+7m+tp_co21%sprops" % typegmc
         namegmc1 = "_12m+7m+tp_co21%sprops" % typegmc1
-    #typegmc = typegmc + typegmc1
+    # typegmc = typegmc + typegmc1
     dirgmc = ('%scats%samended/' % (dirgmc, typegmc))
     namemap = '_ha.fits'
     name_new_muse = 'Nebulae_Catalogue.fits'
@@ -663,63 +872,56 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
             for i in range(len(tgmc)):
                 gmc = {}
                 for j in tgmc.colnames:
-                    #print(j)
                     gmc[j] = tgmc[j][i]
+                #if gmc["S2N"] > 5:
                 gmcs.append(gmc)
+
 
             for i in range(len(thii)):
                 hii = {}
                 for j in thii.colnames:
-                    #print(j)
                     hii[j] = thii[j][i]
                 hiis.append(hii)
-
-            hiis = np.array(hiis)
-            gmcs = np.array(gmcs)
-
-
-
-
 
 
 
             s2n = tgmc['S2N']  # signal to noise ratio
             ids2n = (np.where(s2n > 5)[0]).tolist()  # signal to noise condition
 
-            dist_gal_Mpc = tgmc['DISTANCE_PC'][ids2n][0] / 1e6
+            dist_gal_Mpc = tgmc['DISTANCE_PC'][0]/1e6#[ids2n][0] / 1e6
 
             region_gmc = tgmc['REGION_INDEX']
 
-            angle_gmc = 90 - np.degrees(tgmc['POSANG'][ids2n])
-            major_gmc = np.degrees(tgmc['MOMMAJ_PC'][ids2n] / tgmc['DISTANCE_PC'][ids2n])
-            minor_gmc = np.degrees(tgmc['MOMMIN_PC'][ids2n] / tgmc['DISTANCE_PC'][ids2n])
+            angle_gmc = 90 - np.degrees(tgmc['POSANG'])#[ids2n])
+            major_gmc = np.degrees(tgmc['MOMMAJ_PC']/ tgmc['DISTANCE_PC']) #[ids2n] / tgmc['DISTANCE_PC'][ids2n])
+            minor_gmc = np.degrees(tgmc['MOMMIN_PC'] / tgmc['DISTANCE_PC'])#[ids2n] / tgmc['DISTANCE_PC'][ids2n])
 
-            sigvgmc = tgmc['SIGV_KMS'][ids2n]
-            ragmc = tgmc['XCTR_DEG'][ids2n]
-            decgmc = tgmc['YCTR_DEG'][ids2n]
-            fluxco = tgmc['FLUX_KKMS_PC2'][ids2n]
-            radgmc = tgmc['RAD_PC'][ids2n]
+            sigvgmc = tgmc['SIGV_KMS']#[ids2n]
+            ragmc = tgmc['XCTR_DEG']#[ids2n]
+            decgmc = tgmc['YCTR_DEG']#[ids2n]
+            fluxco = tgmc['FLUX_KKMS_PC2']#[ids2n]
+            radgmc = tgmc['RAD_PC']#[ids2n]
             radgmc_deg = np.degrees(radgmc / (dist_gal_Mpc * 1e6))
-            radnogmc = tgmc['RAD_NODC_NOEX'][ids2n]
-            tpgmc = tgmc['TMAX_K'][ids2n]
+            radnogmc = tgmc['RAD_NODC_NOEX']#[ids2n]
+            tpgmc = tgmc['TMAX_K']#[ids2n]
             if new_muse == False:
-                gmcvel = tgmc['VCTR_KMS'][ids2n]
+                gmcvel = tgmc['VCTR_KMS']#[ids2n]
             else:
-                gmcvel = tgmc['VCTR_KMS'][ids2n]
+                gmcvel = tgmc['VCTR_KMS']#[ids2n]
                 gmcvel = np.array(gmcvel)
 
             gmcvel = vgsr_to_vhel(vgsr=gmcvel, ra=ragmc, dec=decgmc)
             gmcvel = gmcvel / (1 - gmcvel / c)
 
             if galnam != 'ngc1672' and galnam != 'ic5332':
-                massco = tgmc['MLUM_MSUN'][ids2n]
-                avir = tgmc['VIRPARAM'][ids2n]
-                tauff = tgmc['TFF_MYR'][ids2n] * 10 ** 6
-                Sigmamol_co = tgmc['SURFDENS'][ids2n]
+                massco = tgmc['MLUM_MSUN']#[ids2n]
+                avir = tgmc['VIRPARAM']#[ids2n]
+                tauff = tgmc['TFF_MYR']*10**6#[ids2n] * 10 ** 6
+                Sigmamol_co = tgmc['SURFDENS']#[ids2n]
             else:
-                massco = tgmc['FLUX_KKMS_PC2'][ids2n] * 4.3 / 0.69
+                massco = tgmc['FLUX_KKMS_PC2']* 4.3 / 0.69#[ids2n]
                 avir = 5. * (
-                            sigvgmc * 1e5) ** 2 * radgmc * ct.pc.cgs.value / massco / ct.M_sun.cgs.value / ct.G.cgs.value
+                        sigvgmc * 1e5) ** 2 * radgmc * ct.pc.cgs.value / massco / ct.M_sun.cgs.value / ct.G.cgs.value
                 Sigmamol_co = massco / (radgmc ** 2 * math.pi)
                 RAD3 = (radgmc ** 2 * 50) ** 0.33
                 rhogmc = 1.26 * massco / (4 / 3 * math.pi * RAD3 ** 3) * ct.M_sun.cgs.value / ct.pc.cgs.value ** 3
@@ -727,7 +929,7 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
                 tauff = [math.sqrt(f) / 365 / 24 / 3600 for f in arg]
                 tauff = np.array(tauff)
 
-            Sigmamol_vir = tgmc['MVIR_MSUN'][ids2n] / (radgmc ** 2 * math.pi)
+            Sigmamol_vir = tgmc['MVIR_MSUN']/ (radgmc ** 2 * math.pi)#[ids2n]
 
             # =========================================================================================
             # Correct LHa by the new distance measurement.
@@ -743,38 +945,34 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
             writeds9(galnam, namegmc, rahii, dechii, pind, ragmc, decgmc, "all_regions", dirregions, name_end)
             # ==========================================================================================
 
-            if without_out == True:
-                idoverhii, idovergmc, outliers, rms = without_outlier(idoverhii, idovergmc, hiivel[idoverhii],
-                                                                      gmcvel[idovergmc])
-                total_outliers.append(outliers)
+
 
             data = fits.open(dirmaps + str.upper(galnam) + namemap)
             header = data[0].header
-            #threshold = 50
-            #threshold_perc = 0.5
+            # threshold = 50
+            # threshold_perc = 0.5
 
-            if overperc == True:
+            if matching_1o1 == True or matching_1om == True:
                 mindist, inddist, a, b = checkdist_2D(rahii, dechii, ragmc, decgmc, sizehii, radgmc,
                                                       dist_gal_Mpc)
                 maxarea, indarea, idovergmc, idoverhii = overlap_percent(rahii, dechii, major_gmc, minor_gmc, angle_gmc,
                                                                          decgmc, ragmc, radiushii, radgmc_deg, header,
-                                                                         threshold_perc, gmcs, hiis)
-
+                                                                         threshold_perc, gmcs, hiis, matching_1o1, matching_1om)
 
                 idovergmc_s.append(idovergmc)
                 idoverhii_s.append(idoverhii)
-            else:
+            elif matching_dist == True:
                 mindist, inddist, idovergmc, idoverhii = checkdist_2D(rahii, dechii, ragmc, decgmc, sizehii, radgmc,
                                                                       dist_gal_Mpc)
 
                 idovergmc_s.append(idovergmc)
                 idoverhii_s.append(idoverhii)
 
-            if len(idoverhii) == 0:
-                idoverhii = 0
-            if len(idovergmc) == 0:
-                idovergmc = 0
-            print(idoverhii)
+            if without_out == True:
+                idoverhii, idovergmc, outliers, rms = without_outlier(idoverhii, idovergmc, hiivel[idoverhii],
+                                                                      gmcvel[idovergmc])
+                total_outliers.append(outliers)
+
             LumHacorr_galo = lhahiicorr[idoverhii]
             # if new_muse == False:
             # GaldisHII_galo = rgalhii[idoverhii]
@@ -789,14 +987,15 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
             HIIminor_galo = minor[idoverhii]
             velGMC_galo = gmcvel[idovergmc]
             distas = np.array(((ragmc[idovergmc] - rahii[idoverhii]) ** 2 + (
-                        decgmc[idovergmc] - dechii[idoverhii]) ** 2) ** 0.5)  # array of distance between GMC(j) and all the HII regions
-            #print(dist_gal_Mpc*10e6 * np.pi/180)
+                    decgmc[idovergmc] - dechii[
+                idoverhii]) ** 2) ** 0.5)  # array of distance between GMC(j) and all the HII regions
+            # print(dist_gal_Mpc*10e6 * np.pi/180)
 
-            distas = np.array(distas) * dist_gal_Mpc*10e6 * np.pi/180
-            #print(distas)
-            #test = findist(rahii[idoverhii], dechii[idoverhii], ragmc[idovergmc], decgmc[idovergmc],dist_gal_Mpc[idovergmc])
-            #print(test)
-            DisHIIGMC_galo = mindist[idovergmc] * dist_gal_Mpc*10e6 * np.pi/180
+            distas = np.array(distas) * dist_gal_Mpc * 10e6 * np.pi / 180
+            # print(distas)
+            # test = findist(rahii[idoverhii], dechii[idoverhii], ragmc[idovergmc], decgmc[idovergmc],dist_gal_Mpc[idovergmc])
+            # print(test)
+            DisHIIGMC_galo = mindist[idovergmc] * dist_gal_Mpc * 10e6 * np.pi / 180
             SizepcGMC_galo = radgmc[idovergmc]
             sigmavGMC_galo = sigvgmc[idovergmc]
             MasscoGMC_galo = massco[idovergmc] / 1e5
@@ -1095,7 +1294,6 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
     # =============================================================================================================================================
     # Saving the parameters to be read by another procedure.
 
-
     print("Plots of all galaxies together")
 
     arrayxax = [SizepcHIIover, LumHacorrover, sigmavHIIover, ratlin, metaliHIIover, varmetHIIover,
@@ -1132,11 +1330,20 @@ def extract_info(gmc_catalog, new_muse, overlap_matching, outliers,threshold_per
 
     print(name_end)
 
-    if overperc == True:
-        with open(('overperc%s%s.pickle' % (namegmc, name_end)), "wb") as f:
-            pickle.dump([idoverhii_s, idovergmc_s],f)
-    else:
+    if matching_1o1 == True:
+        with open(('matching_1o1%s%s.pickle' % (namegmc, name_end)), "wb") as f:
+            pickle.dump([idoverhii_s, idovergmc_s], f)
+
+    if matching_1om == True:
+        with open(('matching_1om%s%s.pickle' % (namegmc, name_end)), "wb") as f:
+            pickle.dump([idoverhii_s, idovergmc_s], f)
+    if matching_dist == True:
         with open(('dist%s%s.pickle' % (namegmc, name_end)), "wb") as f:
             pickle.dump(
                 [idoverhii_s, idovergmc_s],
                 f)
+
+
+
+
+
