@@ -584,7 +584,7 @@ def extract_info(gmc_catalog, new_muse, matching, outliers, threshold_perc, vel_
                                     gmc["HIIS"].append(hii['PHANGS_INDEX'])
                                     gmc["OVERLAP_PIX"].append(count1)
                                     hii["GMCS"].append(gmc['CLOUDNUM'])
-                                    hii["OVERLAP_PIX"].append(count1) # when hii regions have the right size change to count2
+                                    hii["OVERLAP_PIX"].append(count1) # when gmcs have the right size change to count2
                                     hiivel = (hii['HA_VEL'] + 1.4)  # Velocity (km/s)
                                     gmcvel = gmc['VCTR_KMS']
 
@@ -1051,11 +1051,14 @@ def extract_info(gmc_catalog, new_muse, matching, outliers, threshold_perc, vel_
             region_gmc = tgmc['REGION_INDEX'][ids2n]
 
             angle_gmc = 90 - np.degrees(tgmc['POSANG'][ids2n])  # )
-            major_gmc = np.degrees(tgmc['MOMMAJ_PC'][ids2n]/ tgmc['DISTANCE_PC'][ids2n]) # [ids2n] / tgmc['DISTANCE_PC'][ids2n])
-            minor_gmc = np.degrees(tgmc['MOMMIN_PC'][ids2n]/ tgmc['DISTANCE_PC'][ids2n])  # [ids2n] / tgmc['DISTANCE_PC'][ids2n])
+
+            major_gmc = np.degrees(tgmc['MOMMAJ_PC'][ids2n]/ tgmc['DISTANCE_PC'][ids2n])
+            minor_gmc = np.degrees(tgmc['MOMMIN_PC'][ids2n]/ tgmc['DISTANCE_PC'][ids2n])
             radgmc = tgmc['RAD_PC'][ids2n]  # [ids2n]
             radgmc_deg = np.degrees(radgmc / (dist_gal_Mpc * 1e6))
+
             radnogmc = tgmc['RAD_NODC_NOEX'][ids2n]  # [ids2n]
+
 
             ragmc = tgmc['XCTR_DEG'][ids2n] # [ids2n]
             decgmc = tgmc['YCTR_DEG'][ids2n]  # [ids2n]

@@ -6,30 +6,31 @@ import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf as fpdf
 
 
-def name(overperc, without_out, new_muse):
-    name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_', str(threshold_perc)]
-
-    if new_muse == True:
-        name_end = name_append[3]
-        if overperc == True:
-            name_end = name_end + name_append[0] + name_append[5]
-            if without_out == True:
-                name_end = name_end + name_append[2]
-            else:
-                name_end = name_end + name_append[1]
-
-    else:
-        name_end = name_append[4]
-        if overperc == True:
-            name_end = name_end + name_append[0] + name_append[5]
-            if without_out == True:
-                name_end = name_end + name_append[2]
-            else:
-                name_end = name_end + name_append[1]
-    return name_end
 
 
 def dif_hii_gmc(new_muse, gmc_catalog, overlap_matching, outliers, show, save, *args, **kwargs):
+    def name(overperc, without_out, new_muse, threshold_perc):
+        name_append = ['perc_matching_', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
+                       str(threshold_perc)]
+
+        if new_muse == True:
+            name_end = name_append[3]
+            if overperc == True:
+                name_end = name_end + name_append[0] + name_append[5]
+                if without_out == True:
+                    name_end = name_end + name_append[2]
+                else:
+                    name_end = name_end + name_append[1]
+
+        else:
+            name_end = name_append[4]
+            if overperc == True:
+                name_end = name_end + name_append[0] + name_append[5]
+                if without_out == True:
+                    name_end = name_end + name_append[2]
+                else:
+                    name_end = name_end + name_append[1]
+        return name_end
 
     paired = kwargs.get('paired', None)
     unpaired = kwargs.get('unpaired', None)

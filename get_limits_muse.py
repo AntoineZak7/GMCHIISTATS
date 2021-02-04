@@ -15,15 +15,16 @@ typegmc1 ='' # match_, match_homogenized_ (nothing for native)
 typegmc = '_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
 #==============================================================================#
 
+dir_script_data = os.getcwd() + "/script_data/"
 
 namegmc = "_12m+7m+tp_co21%sprops"%typegmc
 
-dirhii, dirgmc, dirregions, dirmaps, dirplots = pickle.load(open('Directories_muse.pickle', "rb"))
+dirhii, dirgmc, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots, dirhiimasks = pickle.load(open(dir_script_data+'Directories_muse.pickle', "rb"))
 
 dirmuseproperties = os.path.dirname(os.path.realpath("Extract_info_plot_per_gal_muse.py")) + "/"
 
 galaxias, GMCprop, HIIprop, RAgmc, DECgmc, RAhii, DEChii, labsxax, labsyay = pickle.load(
-    open('%sGalaxies_variables_GMC%s.pickle' % (dirmuseproperties, namegmc), "rb"))
+    open(dir_script_data+'Galaxies_variables_GMC%s.pickle' % ( namegmc), "rb"))
 
 GaldisHIIover, SizepcHIIover, LumHacorrover, sigmavHIIover, ratlin, metaliHIIover, varmetHIIover, \
 velHIIover,HIIminorover, HIImajorover, HIIangleover = HIIprop
@@ -85,6 +86,6 @@ for k in range(len(labsyay)):
 
     
 print ("Saving variables in external file: limits_properties.pickle")
-with open('limits_properties.pickle', "wb") as f:
+with open(dir_script_data+'limits_properties.pickle', "wb") as f:
 #        pickle.dump([xlim,ylim,labsxax,labsyay], f)
         pickle.dump([xlimt,ylimt,labsxax,labsyay], f)

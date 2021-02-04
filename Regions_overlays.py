@@ -9,13 +9,16 @@ from astropy import wcs
 from regions import read_ds9
 import os
 from regions import EllipseSkyRegion, CircleSkyRegion
-from astropy.coordinates import SkyCoord
-from astropy.coordinates import FK5
-from spectral_cube import Projection
+from reproject import reproject_interp
 import warnings
 warnings. filterwarnings("ignore")
+from matplotlib import rc
+#rc('text', usetex = True)
 
-def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_perc, *args, **kwargs):
+#plt.rcParams['text.usetex'] = True
+#plt.rcParams['font.size'] = 18
+
+def overlays(new_muse, gmc_catalog, matching, outliers, show, save, vel_limit, threshold_perc, randomize, *args, **kwargs):
 
     paired = kwargs.get('paired', None)
     unpaired = kwargs.get('unpaired', None)
@@ -26,31 +29,27 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
         if save == True:
             pdf.savefig(fig)
         if show == True:
+            #plt.xlim(250,400)
+            #plt.ylim(320,470)
             plt.show()
         else:
             plt.close()
 
-    def name(matching, without_out, new_muse):
-        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',
-                       str(threshold_perc), 'perc_matching_1om']
+    def name(matching, without_out, new_muse, gmc_catalog,threshold_perc, vel_limit, randomize):
+        name_append = ['', 'with_outliers', 'without_outliers', 'new_muse_', 'old_muse_',str(threshold_perc), 'vel_limit=', 'random']
 
         if new_muse == True:
-            name_end = name_append[3] + matching
-            if matching != "distance":
-                name_end = name_end  + name_append[5]
-                if without_out == True:
-                    name_end = name_end + name_append[2]
-                else:
-                    name_end = name_end + name_append[1]
-
-        else:
-            name_end = name_append[4] + matching
+            name_end = name_append[3] + gmc_catalog + matching + 'vel_limit:' + str(vel_limit)
             if matching != "distance":
                 name_end = name_end + name_append[5]
                 if without_out == True:
                     name_end = name_end + name_append[2]
+                    if randomize == True:
+                        name_end = name_end + name_append[7]
                 else:
                     name_end = name_end + name_append[1]
+                    if randomize == True:
+                        name_end = name_end + name_append[7]
         return name_end
 
 
@@ -71,7 +70,7 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
             center = hii_regions_paired[i].center
             circle_sky = CircleSkyRegion(center=center, radius=major_over[i] * u.deg)
             circle_pixel = circle_sky.to_pixel(wcs=WC)
-            circle_pixel.plot(color='green')
+            circle_pixel.plot(color='tab:blue', linestyle = '-.')
 
         for i in range(len(gmc_regions_paired)):
             center = gmc_regions_paired[i].center
@@ -79,7 +78,7 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
                                                width=minor_gmc_over[i] * u.deg,
                                                angle=(angle_gmc_over[i]) * u.deg)
             ellipse_pixel_gmc = ellipse_sky_gmc.to_pixel(wcs=WC)
-            ellipse_pixel_gmc.plot(color='lime')
+            ellipse_pixel_gmc.plot(color='lightblue')
 
 
     def unpaired1():
@@ -103,10 +102,6 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
 
         major = HIImajor[j]
 
-        #minor = HIIminor[j]
-
-        #angle = HIIangle[j]
-
         major_gmc = majorGMC[j]
 
         minor_gmc = minorGMC[j]
@@ -117,7 +112,7 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
             center = hii_regions[i].center
             circle_sky = CircleSkyRegion(center=center, radius=major[i] * u.deg)
             circle_pixel = circle_sky.to_pixel(wcs=WC)
-            circle_pixel.plot(color='blue')
+            circle_pixel.plot(color='tab:red', linestyle= '-.')
 
         for i in index_gmc:
             center = gmc_regions[i].center
@@ -154,12 +149,6 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
         major = HIImajor[j]
         major_over = HIImajorover[j]
 
-        #minor = HIIminor[j]
-        #minor_over = HIIminorover[j]
-
-        #angle = HIIangle[j]
-        #angle_over = HIIangleover[j]
-
         major_gmc = majorGMC[j]
         major_gmc_over = majorGMCover[j]
 
@@ -173,7 +162,7 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
             center = hii_regions[i].center
             circle_sky = CircleSkyRegion(center=center, radius=major[i] * u.deg)
             circle_pixel = circle_sky.to_pixel(wcs=WC)
-            circle_pixel.plot(color='blue')
+            circle_pixel.plot(color='tab:red', linestyle = '-.')
 
         for i in index_gmc:
             center = gmc_regions[i].center
@@ -187,13 +176,13 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
             ellipse_sky_gmc = EllipseSkyRegion(center=center, height=major_gmc_over[i] * u.deg,
                                                width=minor_gmc_over[i] * u.deg, angle=(angle_gmc_over[i]) * u.deg)
             ellipse_pixel_gmc = ellipse_sky_gmc.to_pixel(wcs=WC)
-            ellipse_pixel_gmc.plot(color='lightgreen')
+            ellipse_pixel_gmc.plot(color='lightblue')
 
         for i in range(len(hii_regions_paired)):
             center = hii_regions_paired[i].center
             circle_sky = CircleSkyRegion(center=center, radius=major_over[i] * u.deg)
             circle_pixel = circle_sky.to_pixel(wcs=WC)
-            circle_pixel.plot(color='green')
+            circle_pixel.plot(color='tab:blue', linestyle = '-.')
 
 
 
@@ -202,12 +191,14 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
 
     without_out = not outliers
 
-    name_end = name(matching, without_out, new_muse)
+    name_end = name(matching, without_out, new_muse, gmc_catalog, threshold_perc, vel_limit, randomize)
     namegmc = "_12m+7m+tp_co21%sprops" % typegmc
 
-    dirhii, dirgmc, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots = pickle.load(
-        open('Directories_muse.pickle', "rb"))  # retrieving the directories paths
-    dirmuseproperties = os.path.dirname(os.path.realpath("Extract_info_plot_per_gal_muse.py")) + "/"
+    dir_script_data = os.getcwd() + "/script_data/"
+
+    dirhii, dirgmc, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots, dirhiimasks = pickle.load(
+        open(dir_script_data + 'Directories_muse.pickle', "rb"))  # retrieving the directories paths
+    #dirmuseproperties = os.path.dirname(os.path.realpath("Extract_info_plot_per_gal_muse.py")) + "/"
 
     if new_muse == False:
         dirplots = dirplots1
@@ -221,13 +212,17 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
     name_hii_all = "_12m+7m+tp_co21" + typegmc + "props-HIIregions-all_regions" + name_end + ".reg"
     name_gmc_all = "_12m+7m+tp_co21" + typegmc + "props-GMCs-all_regions" + name_end + ".reg"
 
-    galaxias, GMCprop, HIIprop, RAgmc, DECgmc, RAhii, DEChii, labsxax, labsyay = pickle.load(
-        open('%sGalaxies_variables_GMC%s%s.pickle' % (dirmuseproperties, namegmc, name_end), "rb"))
+    galaxias, GMCprop, HIIprop, RAgmc, DECgmc, RAhii, DEChii, labsxax, labsyay, idoverhiis, idovergmcs = pickle.load(
+        open( dir_script_data + 'Galaxies_variables_GMC%s%s.pickle' % ( namegmc, name_end), "rb"))
     SizepcHIIover, LumHacorrover, sigmavHIIover, ratlin, metaliHIIover, varmetHIIover, velHIIover, HIIminorover, HIImajorover, HIIangleover = HIIprop
-    DisHIIGMCover, MasscoGMCover, SizepcGMCover, Sigmamoleover, sigmavGMCover, aviriaGMCover, TpeakGMCover, tauffGMCover, velGMCover, angleGMCover, majorGMCover, minorGMCover, regionindexGMCover = GMCprop
+    DisHIIGMCover, MasscoGMCover, SizepcGMCover, Sigmamoleover, sigmavGMCover, aviriaGMCover, TpeakGMCover, tauffGMCover, velGMCover, angleGMCover, majorGMCover, minorGMCover, regionindexGMCover,test = GMCprop
 
     SizepcHII, LumHacorr, sigmavHII, metaliHII, varmetHII, numGMConHII, MasscoGMC, HIIminor, HIImajor, HIIangle, angleGMC, majorGMC, minorGMC = pickle.load(
-        open('%sGalaxies_variables_notover_GMC%s%s.pickle' % (dirmuseproperties, namegmc, name_end), "rb"))
+        open( dir_script_data +'Galaxies_variables_notover_GMC%s%s.pickle' % ( namegmc, name_end), "rb"))
+
+    
+
+
 
     # ==========================All Paired and unpaired=====================================#
     if paired == True or all == True:
@@ -244,20 +239,22 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
         if os.path.isfile("%s%s%s" % (dirmaps, str.upper(galaxias[j]), name)) == True:
             if os.path.isfile("%s%s%s" % (dirregions, galaxias[j], name_gmc)) == True and os.path.isfile(
                     "%s%s%s" % (dirregions, galaxias[j], name_hii)) == True:
+                mask = fits.open(dirhiimasks + str.upper(galaxias[j]) + '_HIIreg_mask.fits')
                 hdul = fits.open(dirmaps + str.upper(galaxias[j]) + name)
                 hdr = hdul[0].header
                 image_data = hdul[0].data
-                WC = wcs.WCS(hdr)
+                WC = wcs.WCS(mask[0].header)
+                image_reprojected, footprint = reproject_interp(hdul, mask[0].header)
                 flat_imagedata = image_data.flatten()
-                # outline = Projection.from_hdu(hdulout[0])
-                # outline_re = outline.reproject(hdr)
 
                 max = np.nanmax(flat_imagedata)
                 min = np.nanmin(flat_imagedata)
 
                 fig = plt.figure()
                 fig.add_subplot(111, projection=WC)
-                plt.imshow(image_data, vmax=6000, cmap='Greys')
+                print(name_end)
+                plt.suptitle('%s \n %s' %(name_end,galaxias[j]))
+                plt.imshow(image_reprojected, vmax=6000, cmap='Greys')
 
                 gmc_regions_paired = read_ds9(dirregions + galaxias[j] + name_gmc)
                 hii_regions_paired = read_ds9(dirregions + galaxias[j] + name_hii)
@@ -289,14 +286,14 @@ def overlays(new_muse, gmc_catalog, matching, outliers, show, save, threshold_pe
                     save_pdf(pdf2)
                     save_pdf(pdf3)
 
-                # fig.colorbar(cm.ScalarMappable( norm = norme ,cmap=RdBu))
 
 
     if paired == True or all == True:
         pdf1.close()
     if unpaired == True or all == True:
         pdf2.close()
-    if paired_and_unpaired() == True or all == True:
+    if (paired == True and unpaired == True )or all == True:
         pdf3.close()
 
-#overlays(new_muse = False, gmc_catalog = "_native_", overlap_matching = True, outliers = True,show = True, save = False, threshold_perc = 0.5,  paired = True, unpaired = True)
+overlays(new_muse =True, gmc_catalog = "_native_", matching = "overlap_1om", outliers = True,show =True, save = True, threshold_perc = 0.9,  paired = True, unpaired = True, vel_limit = 10000, randomize = False)
+
