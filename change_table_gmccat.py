@@ -131,4 +131,6 @@ def value_at_position(ra, dec, dirmask, galnam):
 
 
 
+all_catalogs(dirallcats = '/home/antoine/Internship/gmc_new/', dirmask = '/home/antoine/Internship/masks_v5p3_simple' , overwrite = True)
+
 
