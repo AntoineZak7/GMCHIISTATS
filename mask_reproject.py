@@ -101,7 +101,7 @@ def mask_reproject(co_mask, hii_mask, save, galname, **kwargs):
         new_mask_header['CRPIX2'] = co_header['CRPIX2']
 
         #save file as fits in specified directory
-        file_name = save_directory + galname + hii_mask[0].header['EXTNAME']+'mask_reprojected_to_codatacube.fits'
+        file_name = save_directory + str.upper(galname) +'mask_reprojected_to_codatacube.fits'
         fits.writeto(file_name, new_mask_data, new_mask_header, overwrite=True)
 
     return new_mask_data
@@ -109,24 +109,23 @@ def mask_reproject(co_mask, hii_mask, save, galname, **kwargs):
 
 
 
-save_directory = '/home/antoine/Internship/hii_masks_dr2/reprojected/'
+save_directory = '/home/antoine/Internship/hii_masks_dr22/reprojected/'
 
-#galname = 'Ngc7496'
 #
-# galnames = ['Ic5332', 'Ngc1433', 'Ngc3627',
-#             'Ngc0628', 'Ngc1512', 'Ngc4254',
-#             'Ngc1087', 'Ngc1566', 'Ngc4303',
-#             'Ngc1300', 'Ngc1672', 'Ngc4321',
-#             'Ngc1365', 'Ngc2835', 'Ngc4535',
-#             'Ngc1385', 'Ngc3351', 'Ngc5068',
-#             'Ngc7496']
+galnames = ['Ic5332', 'Ngc1433', 'Ngc3627',
+            'Ngc0628', 'Ngc1512', 'Ngc4254',
+            'Ngc1087', 'Ngc1566', 'Ngc4303',
+            'Ngc1300', 'Ngc1672', 'Ngc4321',
+            'Ngc1365', 'Ngc2835', 'Ngc4535',
+            'Ngc1385', 'Ngc3351', 'Ngc5068',
+            'Ngc7496']
 
-galnames = ['NGC3627']
+#galnames = ['NGC3627']
 
 for galname in galnames:
     co_mask = fits.open(
         '/home/antoine/Internship/gmc_masks/cats_native_amended/' + str.lower(galname)+'_12m+7m+tp_co21_native_binmask2D.fits')
-    hii_mask = fits.open('/home/antoine/Internship/hii_masks_dr2/' + str.upper(galname)+'_HIIreg_mask.fits')
+    hii_mask = fits.open('/home/antoine/Internship/hii_masks_dr22/' + str.upper(galname)+'_nebulae_mask_V2.fits')
 
     test = mask_reproject(co_mask, hii_mask,save = True, save_directory = save_directory , galname=galname)
 

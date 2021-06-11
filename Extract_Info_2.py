@@ -1,3 +1,9 @@
+'''
+Script used to match HII regions and GMCs according to the spatial overlap.
+Mask generated from catalog geometrical parameters (radius etc...) of HII regions and GMCs.
+'''
+
+
 import os
 import math
 import sys
@@ -40,11 +46,6 @@ velocities = table['orient_vlsr'][ids]
 np.set_printoptions(threshold=sys.maxsize)
 sns.set(style="white", color_codes=True)
 c = 299792.458
-#gal_radial_vels = [701.0, 655, 1516.2, 1570.5, 1637.1,1498.1, 1074.2, 833,1506.1,1335.2,885.2, 766, 702, 2399, 1564, 1570, 1951, 668.5, 1647.9 ]
-#vel_offset_means = [2.29327893,  4.17833797,17.42341014, 29.95852831, 26.81590357, 23.93995921,  18.08730675, -33.57676859,  26.86411143, 19.53263818,  22.38940624,  -7.98805774,  -14.08827485,  10.12162512,  3.24927299,  -1.2154357,  -2.42323438,  2.42687086,  8.17597689]
-#print(len(vel_offset_means))
-
-#gal_radial_vels = np.array(gal_radial_vels) - vel_offset_means
 gal_radial_vels = velocities
 
 # ===================================================================================
@@ -440,7 +441,11 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             WC = wcs.WCS(header)
             name = "_ha.fits"  # "_Hasub_flux.fits"
             hdul = fits.open(dirmaps + str.upper(galaxias[0]) + name)
-            mask = fits.open(dirhiimasks + str.upper(galaxias[0]) + '_HIIreg_mask.fits')
+            if muse !='dr22':
+                mask_suffix = '_HIIreg_mask.fits'
+            else:
+                mask_suffix = '_nebulae_mask_V2.fits'
+            mask = fits.open(dirhiimasks + str.upper(galaxias[0]) + mask_suffix)
             mask_header = mask[0].header
             WCH = wcs.WCS(mask_header)
             image_reprojected, footprint = reproject_interp(hdul, mask_header)
@@ -756,17 +761,24 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
     # ======================================================================================================================================================================"
     dirhii_dr1= "/home/antoine/Internship/muse_hii_new/"  # new muse tables directory
     dirhii_dr2 = "/home/antoine/Internship/muse_hii_new_dr2/"
+    dirhii_dr22 = "/home/antoine/Internship/muse_hii_new_dr22/"
+
     dirgmc_old = '/home/antoine/Internship/gmccats_st1p5_amended/'  # gmc tables directory
     dirgmc_new = "/home/antoine/Internship/gmc_new/"
+    dirgmc_4 = "/home/antoine/Internship/gmc_v4/"
 
     dirmaps = "/home/antoine/Internship/Galaxies/New_Muse/"  # maps directory (to plot the overlays)
     dirhiimasks_dr1 = '/home/antoine/Internship/hii_masks_dr1/'
     dirhiimasks_dr2 = '/home/antoine/Internship/hii_masks_dr2/'
+    dirhiimasks_dr22 = '/home/antoine/Internship/hii_masks_dr22/'
+
+
 
     dirgmcmasks = '/home/antoine/Internship/gmc_masks/'
 
     name_muse_dr1 = 'Nebulae_Catalogue.fits'
     name_muse_dr2 = "HIIregion_cat_DR2_native.fits"
+    name_muse_dr22 = "Nebulae_catalogue_v2.fits"
 
     sample_table_dir = "/home/antoine/Internship/PHANGS Sample (Public) - Basic Data.csv"
 
@@ -781,21 +793,32 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
         os.makedirs(os.getcwd() + "/ds9tables/Muse/DR1", exist_ok=True)
     if not os.path.isdir(os.getcwd() + "/ds9tables/Muse/DR2"):
         os.makedirs(os.getcwd() + "/ds9tables/Muse/DR2", exist_ok=True)
+        if not os.path.isdir(os.getcwd() + "/ds9tables/Muse/DR22"):
+            os.makedirs(os.getcwd() + "/ds9tables/Muse/DR22", exist_ok=True)
     if not os.path.isdir(os.getcwd() + "/Plots_Muse/DR1"):
         os.makedirs(os.getcwd() + "/Plots_Muse/DR1", exist_ok=True)
     if not os.path.isdir(os.getcwd() + "/Plots_Muse/DR2"):
         os.makedirs(os.getcwd() + "/Plots_Muse/DR2", exist_ok=True)
+        if not os.path.isdir(os.getcwd() + "/Plots_Muse/DR22"):
+            os.makedirs(os.getcwd() + "/Plots_Muse/DR22", exist_ok=True)
 
 
 
-    dir_script_data = os.getcwd()+"/script_data_dr2/"
+    dir_script_data1 = os.getcwd()+"/script_data/"
+    dir_script_data2 = os.getcwd()+"/script_data_dr2/"
+    dir_script_data22 = os.getcwd()+"/script_data_dr22/"
+
     dirregions1 = os.getcwd() + "/ds9tables/Muse/DR1/"  # Must create a directory to save the region ds9 files before running the code for the first time
     dirregions2 = os.getcwd() + "/ds9tables/Muse/DR2/"  # same but for new muse catalog
+    dirregions22 = os.getcwd() + "/ds9tables/Muse/DR22/"  # same but for new muse catalog
+
     dirplots1 = os.getcwd() +"/Plots_Muse/DR1/"  # directories to save the plots (old muse catalog)
     dirplots2 = os.getcwd() +"/Plots_Muse/DR2/"  # directories to save the plots (new muse catalog)
+    dirplots22 = os.getcwd() +"/Plots_Muse/DR22/"  # directories to save the plots (new muse catalog)
 
 
-    if muse != 'dr1' and muse != 'dr2':
+
+    if muse != 'dr1' and muse != 'dr2' and muse != 'dr22':
         print('wrong muse input, not dr1 or dr2')
         exit()
 
@@ -806,13 +829,30 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
         dirplots = dirplots1
         dirregions = dirregions1
         dirhiimasks = dirhiimasks_dr1
+        dir_script_data = dir_script_data1
+        dirhii = dirhii_dr1
+        name_muse = name_muse_dr1
+
     elif muse == 'dr2':
         dirplots = dirplots2
         dirregions = dirregions2
         dirhiimasks = dirhiimasks_dr2
+        dir_script_data = dir_script_data2
+        dirhii = dirhii_dr2
+        name_muse = name_muse_dr2
+
+    elif muse == 'dr22':
+        dirplots = dirplots22
+        dirregions = dirregions22
+        dirhiimasks = dirhiimasks_dr22
+        dir_script_data = dir_script_data22
+        dirhii = dirhii_dr22
+        name_muse = name_muse_dr22
+
+
 
     with open((dir_script_data+'Directories_muse.pickle'), "wb") as f:
-        pickle.dump([dirhii_dr1,dirhii_dr2, dirgmc_old,dirgmc_new, dirregions1, dirregions2, dirmaps, dirplots1, dirplots2, dirplots, dirhiimasks, dirgmcmasks, sample_table_dir], f)
+        pickle.dump([dirhii_dr1,dirhii_dr2, dirgmc_old,dirgmc_new, dirregions1, dirregions2, dirregions22, dirmaps, dirplots1, dirplots2, dirplots22, dirplots, dirhiimasks, dirgmcmasks, sample_table_dir], f)
 
     # -----------------------------------------------------#
     if typegmc == "_native_":
@@ -828,26 +868,14 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
         dirgmc = dirgmc_new
     elif gmc_catalog_version == 'old':
         dirgmc = dirgmc_old
+    elif gmc_catalog_version == 'v4':
+        dirgmc = dirgmc_4
 
-    if muse == 'dr1':
-        dirhii = dirhii_dr1
-        name_muse = name_muse_dr1
-    elif muse == 'dr2':
-        dirhii = dirhii_dr2
-        name_muse = name_muse_dr2
-
-
-    dirgmc = ('%scats%samended/' % (dirgmc, typegmc))
-    dirgmcmasks = ('%scats%samended/' % (dirgmcmasks, typegmc))
-
-
-    # -----------------------------------------
-
-    #pdf1 = fpdf.PdfPages("%sHistograms_all_GMC_muse%s%s.pdf" % (dirplots, typegmc, typegmc))
-    #pdf2 = fpdf.PdfPages("%sCorrelations_galbygal_GMC_muse%s%s.pdf" % (dirplots, typegmc, typegmc))
-    #pdf3 = fpdf.PdfPages("%sCorrelations_allgals_GMC_muse%s%s.pdf" % (dirplots, typegmc, typegmc))
-
-    # =======================================================================================
+    if gmc_catalog_version != 'v4':
+        dirgmc = ('%scats%samended/' % (dirgmc, typegmc))
+    else:
+        typegmc2 = "native"
+        dirgmc = ('%s%s/' % (dirgmc, typegmc2))
 
     # Defining empty vectors to save the variables of all galaxies
     total_outliers = []
@@ -930,6 +958,7 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
     majorGMCover = []
     minorGMCover = []
     regionindexGMCover = []
+    regionindexHIIover = []
     FluxCOGMCover = []
 
     RAgmcover = []
@@ -945,6 +974,9 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
     RAhiiall = []
     DEChiiall = []
 
+    HII_reff_over = []
+    HII_r25_over = []
+
     # ============================================================================================================
     # Limits in the properties of HIIR and GMCs
     # if limots.py has not been run, comment the following line
@@ -956,10 +988,10 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
     table_muse = Table.read("%s%s" % (dirhii, name_muse))
 
     w = 0
-    galaxies_name = ['IC5332']
+    galaxies_name = ['NGC0628']
 
     for i in range(len(table_muse['gal_name']) - 1):
-        if galaxies_name[w] != str(table_muse['gal_name'][i]):
+        if galaxies_name[w] != str(table_muse['gal_name'][i]) and str(table_muse['gal_name'][i]) != 'IC5332':
             galaxies_name.append(str(table_muse['gal_name'][i]))
             w += 1
 
@@ -970,8 +1002,8 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
 
     # ========================================================================================#
 
-    rand_ids_gmc_list = pickle.load(
-    open(dir_script_data + 'randomized_lists', "rb"))
+    #rand_ids_gmc_list = pickle.load(
+    #open(dir_script_data + 'randomized_lists', "rb"))
 
     reff_gals = [0.41174614, 211.2647, 0.0347, 0.0303, 0.0205, 0.0002, 1.1346598, 0.0001, 0.0002, 0.258768, 0.0013,
                  165.18874, 11.32, 13.1, 0.071, 15.21, 0.0195, 0.294296, 0.0084]  # arcsec
@@ -987,7 +1019,7 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
 
         galnam = str.lower(galaxies_name[i])
 
-
+        print("%s%s%s.fits" % (dirgmc, galnam, namegmc1))
         if os.path.isfile(("%s%s%s.fits" % (dirgmc, galnam, namegmc1))):
             galaxias.append(galnam)
 
@@ -999,6 +1031,9 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             thii = table_muse[np.where(table_muse['gal_name'] == str.upper(galnam))]
             thii = thii[np.where(thii['BPT_NII'] == 0)]
             thii = thii[np.where(thii['BPT_SII'] == 0)]
+
+            if muse == 'dr22':
+                thii = thii[np.where(thii['BPT_OI'] == 0)]
 
             sample_table = Table.read(sample_table_dir)
             sample_table_gal = sample_table[np.where(sample_table['Name'] == str.upper(galnam))]
@@ -1043,10 +1078,20 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             sigmahii = thii['HA6562_SIGMA']
             metalhii = thii['met_scal']
 
+            if muse == 'dr22':
+                HIIregionindex = thii['Environment']
+                hii_r25 = thii['r_R25']
+                hii_reff = thii['r_reff']
+            else:
+                HIIregionindex = thii['region_ID']
+                hii_r25 = thii['region_ID']
+                hii_reff = thii['region_ID']
+
             if muse == 'dr1':
                 vamethii = thii['Delta_met']
-            elif muse == 'dr2':
+            else :
                 vamethii = thii['met_scal']
+
 
 
             # =============================================================
@@ -1107,18 +1152,18 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             s2n = tgmc['S2N']  # signal to noise ratio
             ids2n = (np.where(s2n >= 5)[0]).tolist()  # signal to noise condition
 
-            if randomize=='gmc_prop' :
-
-                print(rand_ids_gmc_list.keys())
-
-                rand_ids = rand_ids_gmc_list[galnam]
-                tgmc['SIGV_KMS'] = tgmc['SIGV_KMS'][rand_ids]
-                tgmc['FLUX_KKMS_PC2'] = tgmc['FLUX_KKMS_PC2'][rand_ids]
-                tgmc['TMAX_K'] = tgmc['TMAX_K'][rand_ids]
-                tgmc['MLUM_MSUN'] = tgmc['MLUM_MSUN'][rand_ids]
-                tgmc['VIRPARAM'] = tgmc['VIRPARAM'][rand_ids]
-                tgmc['TFF_MYR'] = tgmc['TFF_MYR'][rand_ids]
-                tgmc['SURFDENS'] = tgmc['SURFDENS'][rand_ids]
+            # if randomize=='gmc_prop' :
+            #
+            #     print(rand_ids_gmc_list.keys())
+            #
+            #     rand_ids = rand_ids_gmc_list[galnam]
+            #     tgmc['SIGV_KMS'] = tgmc['SIGV_KMS'][rand_ids]
+            #     tgmc['FLUX_KKMS_PC2'] = tgmc['FLUX_KKMS_PC2'][rand_ids]
+            #     tgmc['TMAX_K'] = tgmc['TMAX_K'][rand_ids]
+            #     tgmc['MLUM_MSUN'] = tgmc['MLUM_MSUN'][rand_ids]
+            #     tgmc['VIRPARAM'] = tgmc['VIRPARAM'][rand_ids]
+            #     tgmc['TFF_MYR'] = tgmc['TFF_MYR'][rand_ids]
+            #     tgmc['SURFDENS'] = tgmc['SURFDENS'][rand_ids]
 
 
 
@@ -1126,7 +1171,12 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
 
 
             dist_gal_Mpc = tgmc['DISTANCE_PC'][0] / 1e6  # [ids2n][0] / 1e6
-            region_gmc = tgmc['REGION_INDEX'][ids2n]
+
+            if gmc_catalog_version != 'v4':
+                region_gmc = tgmc['REGION_INDEX'][ids2n]
+            else:
+                region_gmc = tgmc['ENV_BAR'][ids2n]
+
 
             angle_gmc = 90 - np.degrees(tgmc['POSANG'][ids2n])  # )
 
@@ -1192,7 +1242,10 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             # =========================================================================================
             pc2cm = 3.086e18
             dist_cm = dist_gal_Mpc * 1e6 * pc2cm
-            lhahiicorr = thii['HA6562_FLUX_CORR'] * 4 * np.pi * 1.e-20 * dist_cm * dist_cm  # erg/s [ids2n]
+            if muse != 'dr22':
+                lhahiicorr = thii['HA6562_FLUX_CORR'] * 4 * np.pi * 1.e-20 * dist_cm * dist_cm  # erg/s [ids2n]
+            else:
+                lhahiicorr = thii['Lum_HA6562_CORR']
             sizehii = np.radians(radiushii) * dist_gal_Mpc * 1e6
 
 
@@ -1247,6 +1300,9 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             TpeakGMC_galo = tpgmc[idovergmc]
             tauffGMC_galo = tauff[idovergmc]
             region_index_galo = region_gmc[idovergmc]
+            region_index_hii_galo = HIIregionindex[idoverhii]
+            HII_reff_galo = hii_reff[idoverhii]
+            HII_r25_galo = hii_r25[idoverhii]
             majorGMC_galo = major_gmc[idovergmc]
             minorGMC_galo = minor_gmc[idovergmc]
             angleGMC_galo = angle_gmc[idovergmc]
@@ -1330,6 +1386,9 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
             DECgmcall.append(decgmc)
             RAhiiall.append(rahii)
             DEChiiall.append(dechii)
+            regionindexHIIover = region_index_hii_galo
+            HII_reff_over = HII_reff_galo
+            HII_r25_over = HII_r25_galo
 
             idoverhiis.append(idoverhii)
             idovergmcs.append(idovergmc)
@@ -1412,7 +1471,7 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
     print("Plots of all galaxies together")
 
     arrayxax = [SizepcHIIover, LumHacorrover, sigmavHIIover, ratlin, metaliHIIover, varmetHIIover,
-                velHIIover, HIIminorover, HIImajorover, HIIangleover, Rgal_HII_over]
+                velHIIover, HIIminorover, HIImajorover, HIIangleover, Rgal_HII_over, HII_reff_over, HII_r25_over, HIIregionindex]
 
     arrayyay = [DisHIIGMCover, MasscoGMCover, SizepcGMCover, Sigmamoleover, sigmavGMCover, aviriaGMCover, TpeakGMCover,
                 tauffGMCover, velGMCover, angleGMCover, majorGMCover, minorGMCover, regionindexGMCover, FluxCOGMCover, Rgal_GMC_over]
@@ -1422,7 +1481,7 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
                r'log($\sigma_{\rm v}$ HII region / 1 km s$^{-1}$)', r'log(Lum H$\alpha$/HII region size$^2$)',
                'Metallicity',
                'Metallicity variation', 'HII velocity [km s$^{-1}$]', 'HII region minor axis (deg)',
-               'HII region major axis (deg)', 'HII region PA (deg)', 'R_gal HII region (pc)']
+               'HII region major axis (deg)', 'HII region PA (deg)', 'R_gal HII region (pc)', 'R_eff HII region)', 'R_25 HII region', 'HII region index']
 
     labsyay = ['log(Dist. HII-GMC / 1 pc)', r'log(M$_{\rm CO}$ / 10$^5$ M$_{\odot}$)', 'log(GMC size / 1 pc)',
                r'log($\Sigma_{\rm mol}$ / 1 M$_{\odot}$ pc$^{-2}$)', r'log($\sigma_{\rm v}$ / 1 km s$^{-1}$)', r'log($\alpha_{vir}$)',
@@ -1500,17 +1559,35 @@ def extract_info(gmc_catalog, gmc_catalog_version, muse, matching, outliers, thr
 
 
 #extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = True)
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.1 , vel_limit= 10000, randomize = '', symmetrical='gmc')
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = '', symmetrical='gmc')
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.9 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.1 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.2 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.3 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.4 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.6 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.7 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.8 , vel_limit= 10000, randomize = '', symmetrical='gmc')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.9 , vel_limit= 10000, randomize = '', symmetrical='gmc')
 
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.1 , vel_limit= 10000, randomize = '', symmetrical='hii')
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = '', symmetrical='hii')
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.9 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.1 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.2 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.3 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.4 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.6 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.7 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.8 , vel_limit= 10000, randomize = '', symmetrical='hii')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.9 , vel_limit= 10000, randomize = '', symmetrical='hii')
 
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.1 , vel_limit= 10000, randomize = '', symmetrical='sym')
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = '', symmetrical='sym')
-extract_info(gmc_catalog="_native_", gmc_catalog_version='new', muse='dr2', matching="overlap_1om", outliers=True,threshold_perc=0.9 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.1 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.2 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.3 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.4 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.5 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.6 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.7 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.8 , vel_limit= 10000, randomize = '', symmetrical='sym')
+extract_info(gmc_catalog="_native_", gmc_catalog_version='v4', muse='dr22', matching="overlap_1om", outliers=True,threshold_perc=0.9 , vel_limit= 10000, randomize = '', symmetrical='sym')
 
 
 

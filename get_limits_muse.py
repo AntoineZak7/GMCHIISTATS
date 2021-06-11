@@ -15,7 +15,7 @@ typegmc1 ='' # match_, match_homogenized_ (nothing for native)
 typegmc = '_native_'  # native, _150pc_, _120pc_, _90pc_, _60pc_
 #==============================================================================#
 
-dir_script_data = os.getcwd() + "/script_data/"
+dir_script_data = os.getcwd() + "/script_data_dr22/"
 
 namegmc = "_12m+7m+tp_co21%sprops"%typegmc
 
